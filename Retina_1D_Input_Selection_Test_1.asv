@@ -8,16 +8,22 @@ rng(1)
 
 %%%% Data // following the reference.
 
-delta = 0.00389 % cm
-sigmaBG = 0.15 % cm
-sigmaAG = 0.15 % cm
+delta = 0.00389; % cm
+sigmaBG = 0.15; % cm
+sigmaAG = 0.15; % cm
 
+tauB = 57.5139; % ms
+tauA = 86.6298; % ms
+tauG = 54.8947; % ms
 
-
+wm = 0.0128109; % kHz
+wp = 0.0188413; % kHz
+wBG = 0.0131284; % kHz 
+wAG = 0.0137853; % kHz 
 
 %%%% Numerical data
 
-dn = 10; % size of one layer
+dn = 100; % size of one layer
 
 n = 3 * dn;
 
@@ -34,10 +40,8 @@ N = 100; % Time window
 
 Gamma = laplacian1DGraph(dn);
 GammaBG = gaussianPooling1DGraph(dn,delta,sigmaBG);
+GammaAG = gaussianPooling1DGraph(dn,delta,sigmaAG);
 
-
-
-% Gamma = diag(ones(dn-1,1),1)+diag(ones(dn-1,1),-1);
 
 id = speye(dn);
 zz = sparse(dn,dn);
@@ -48,8 +52,16 @@ Acol(:,:,1) = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
 Acol(:,:,2) = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
 Acol(:,:,3) = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
 
-Acol(:,:,4) = [zz , - Gamma, zz ; zz, zz, zz ; zz, zz, zz];
+Acol(:,:,4) = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
 Acol(:,:,5) = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
+
+Acol(:,:,6) = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
+Acol(:,:,7) = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
+
+%Acol(:,:,8) = [zz , zz, zz ; zz, zz, zz ; zz, zz, zz];
+
+Acol(:,:,8) = 1/tauB*Acol(:,:,1) + 1/tauA*Acol(:,:,2) + 1/tauG*Acol(:,:,3) ...
+    + wm*Acol(:,:,4) + wp*Acol(:,:,5) + wBG*Acol(:,:,6) + wAG*Acol(:,:,7);
 
 
 
@@ -67,41 +79,33 @@ Delta = Tf/N;
 % Sigmap = 0.5;
 
 sigma = 0.1*eye(n);
-Sigmap = 0.1;
+Sigmap = 0.1*eye(q);
 
 
 % sigma = 0.01*eye(n);
 % Sigmap = 10^(-4);
 
+B = sparse([eye(dn,m);zeros(2*dn,m)]);
 
-% B = rand(n,m);
-% C = randn(q,n);
+C = sparse([zeros(q,2*dn),eye(q,dn)]);
 
 
-% B = [ones(dn,m);zeros(2*dn,m)];
-% C = [zeros(q,2*dn),ones(q,dn)];
 
-B = [eye(dn,m);zeros(2*dn,m)];
-%C = [zeros(q,2*dn),randn(q,dn)];
-C = [zeros(q,2*dn),ones(q,dn)];
+%%% Contraction of A.
 
-compteur = 0;
-condition = false;
-stop = 50;
-while condition == false
-    %thetaTrue = [abs(randn(1,p))]/3;
+thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
 
-    thetaTrue = [0.1, 0.04, -.2];
-    %thetaTrue = [0.1,0.04];
-    %thetaTrue = [0.04,0.1];
-    A = Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3);
-    condition = (max(real(eig(A))) < -.25) || (compteur > stop);
-    compteur = compteur+1;
-end
+
+thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
+
+% thetaTrue = [0,0,0,0,0,0,0];
+
+A = Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3);
+condition = (max(real(eig(A))) < -.25) || (compteur > stop);
+compteur = compteur+1;
+
 
 display(unique(eig(A)))
-
-display(compteur)
 
 display(max(real(unique(eig(A)))))
 
@@ -144,9 +148,9 @@ for i = 1:p
 end
 
 
-
-Q = zeros(p,p);
-L = zeros(N*m,N*m,p,p);
+%%
+Q = spzeros(p,p);
+L = spzeros(N*m,N*m,p,p);
 
 for i = 1:p
     for j = 1:p
@@ -156,7 +160,7 @@ for i = 1:p
 end
 
 toc
-
+%%
 
 %%%% Collection of controls
 
