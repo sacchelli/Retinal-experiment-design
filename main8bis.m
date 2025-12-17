@@ -151,53 +151,65 @@ toc
 %%% Test family 
 
 
-sdn=sqrt(dn);
+sdn = sqrt(dn);
 
 dx = 1/sdn;
 dy = 1/sdn;
 
-
-
-
-Kbound=100000;
+Kbound  = 100000;
 counter = 0;
-controls = zeros(m,N,Kbound);
 
+controls = zeros(m, N, Kbound);
 
 cMax = 1;
-lambdaMax = 2*2*pi;
+kMax = 2*2*pi;   % borne supérieure pour le nombre d'onde
 
-angleNumber = 30;
-velocityNumber = 1;
-wavelengthNumber = 2 ;
+angleNumber    = 15;
+velocityNumber = 2;
+kNumber        = 2;
 
-triples = zeros(3,Kbound);
+triples = zeros(3, Kbound);  % [theta ; c ; k]
 
-for la = 0 : angleNumber
-    for lv = 1 : velocityNumber
-        for lw = 0 : wavelengthNumber
-            counter = counter+1;
-            thetaU = la/angleNumber*pi;
-            c = lv/velocityNumber*cMax;
-            lambdaU = lw/wavelengthNumber*lambdaMax;
-            for k = 1:N
-                compteur = compteur+1;
-                temp=zeros(sdn,sdn);
-                for i = 1:sdn
-                    for j = 1:sdn
-                        temp(i,j)=1+cos(lambdaU*i*dx*cos(thetaU)+lambdaU*j*dy*sin(thetaU)+k*Delta*c);
+for ia = 1:angleNumber
+    for iv = 1:velocityNumber
+        for ik = 1:kNumber
+
+            counter = counter + 1;
+
+            % Paramètres
+            theta = (ia-1)/angleNumber * pi;
+            c     = iv/velocityNumber * cMax;
+            k     = ik/kNumber * kMax;
+
+            for it = 1:N
+                temp = zeros(sdn, sdn);
+                t = (it-1) * Delta;
+
+                for ix = 1:sdn
+                    for iy = 1:sdn
+                        x = ix * dx;
+                        y = iy * dy;
+
+                        phase = k * (x*cos(theta) + y*sin(theta)) - c * k * t;
+
+                        temp(ix,iy) = 1 + cos(phase);
                     end
                 end
-                controls(:,k,counter) = temp(:);
+
+                controls(:, it, counter) = temp(:);
             end
-            triples(:,counter) = [thetaU;c;lambdaU];
+
+            triples(:, counter) = [theta; c; k];
         end
     end
 end
 
-controls = controls(:,:,1:counter);
+counter = counter + 1;
+controls(:, :, counter) = ones(m, N);
+triples(:, counter) = [NaN; NaN; 0];
 
-triples = triples(:,1:counter);
+controls = controls(:,:,1:counter);
+triples  = triples(:,1:counter);
 
 
 %%
@@ -364,7 +376,7 @@ for l=1:N
         title("weight = " + num2str(wnew(idx(k))) + ...
             ", \theta = " + num2str(triples(1,idx(k))/pi) + ...
             "\pi, c = " + num2str(triples(2,idx(k)))+ ...
-            ", \lambda = " + num2str(triples(3,idx(k))/pi)+"\pi")
+            ", k = " + num2str(triples(3,idx(k))))
         drawnow
         
         pause(0.02)

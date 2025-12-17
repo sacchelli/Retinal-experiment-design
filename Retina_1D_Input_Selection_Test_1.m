@@ -1,8 +1,7 @@
 addpath './Functions'
 clc
 
-tic
-
+timeTakenStart = tic;
 
 rng(1)
 
@@ -23,7 +22,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 10; % size of one layer
+dn = 40; % size of one layer
 
 n = 3 * dn;
 
@@ -67,13 +66,15 @@ Acol(:,:,8) = 1/tauB*Acol(:,:,1) + 1/tauA*Acol(:,:,2) + 1/tauG*Acol(:,:,3) ...
 
 
 
-Tf=10*pi;
+%Tf=10*pi; % Time of the experiment
+
+Tf=1; % Time of the experiment
 
 prec = 500;   % must be even
 
 Delta = Tf/N;
 
-
+%%%% Determination of 
 
 % sigma = 0.5*eye(n);
 % Sigmap = 0.5;
@@ -95,7 +96,6 @@ C = sparse([zeros(q,2*dn),eye(q,dn)]);
 
 thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
 
-
 thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
 
 % thetaTrue = [0,0,0,0,0,0,0];
@@ -105,14 +105,22 @@ condition = (max(real(eig(A))) < -.25) || (compteur > stop);
 compteur = compteur+1;
 
 
-display(unique(eig(A)))
+%display(unique(eig(A)))
 
-display(max(real(unique(eig(A)))))
+%display(max(real(unique(eig(A)))))
 
+maxReEigA=max(real(unique(eig(A))));
+
+
+fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
 
 %%%% Construction of elements
 
+
+fprintf(['\n','Dynamics and variance pre-computation... '])
+
+tStepStart = tic;
 
 F = buildF(A, Delta);
 G = buildGASparse(A, B, Delta,prec);
@@ -120,13 +128,19 @@ Sigma = buildSigmaASparse(A, sigma, Delta, prec);
 SigmaBold = buildSigmaBold(C,C/2,F,Sigma,Sigmap,N);
 SigmaBoldinv = inv(SigmaBold);
 
+tStepEnd = toc(tStepStart);
 
+fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
+
+fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
 Hb = zeros(N*q,N*m,p);
 dSb = zeros(N*q,N*q,p);
 
 for i = 1:p
-    disp(i)
+    fprintf(['Parameter ',num2str(i),'/',num2str(p),' '])
+    tStepStart = tic;
+    
     Ab = [A, zeros(n,n); Acol(:,:,i), A];
     
     Bb = [B; zeros(n,m)];
@@ -144,88 +158,120 @@ for i = 1:p
     Hb(:,:,i) = buildH(Cb, Fb, Gb, N);
     dSb(:,:,i) = buildSigmaBold(Cb,Cbp,Fb,Sigmab,zeros(q,q),N);
     
+    tStepEnd = toc(tStepStart);
 
+    fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 end
 
+timeTakenCheck = toc(timeTakenStart);
+
+fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s)\n'])
+
+fprintf(['\n','Q matrix computation... \n'])
 
 
 Q = zeros(p,p);
-L = zeros(N*m,N*m,p,p);
+halfQ = zeros(N*q,N*q,p);
 
 for i = 1:p
-    for j = 1:p
-        Q(i,j) = 0.5*trace(SigmaBoldinv*dSb(:,:,i)*SigmaBoldinv*dSb(:,:,j));
-        L(:,:,i,j) = (Hb(:,:,i)'*SigmaBoldinv*Hb(:,:,j) + Hb(:,:,j)'*SigmaBoldinv*Hb(:,:,i))/2;
+    fprintf(['Parameter ',num2str(i),'/',num2str(p)])
+    tStepStart = tic;
+    halfQ(:,:,i) = SigmaBoldinv*dSb(:,:,i);
+    tStepEnd = toc(tStepStart);
+    fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
+end
+
+for i = 1:p
+    for j = 1:i
+        Q(i,j) = 0.5*sum(sum(halfQ(:,:,i).*halfQ(:,:,j)'));
+        Q(j,i) = Q(i,j);
     end
 end
 
-toc
-%%
+
+timeTakenCheck = toc(timeTakenStart);
+
+fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
+
 
 %%%% Collection of controls
 
 
 %%% Test family 
 
+fprintf(['\n','Input collection... '])
 
-sdn=sqrt(dn);
+tStepStart = tic;
 
-dx = 1/sdn;
-dy = 1/sdn;
+sdn = dn;
+dx  = 1/sdn;
 
-
-
-
-Kbound=100000;
+Kbound  = 100000;
 counter = 0;
-controls = zeros(m,N,Kbound);
 
+controls = zeros(m, N, Kbound);
 
-cMax = 1;
-lambdaMax = 2*2*pi;
+cMax = 10;
+kMax = 10*2*pi;   % bound on the wave number
 
-angleNumber = 30;
-velocityNumber = 1;
-wavelengthNumber = 2 ;
+velocityN = 30;
+kN = 30;
 
-triples = zeros(3,Kbound);
+inputParameters = zeros(2, Kbound);   % [c ; k]
 
-for la = 0 : angleNumber
-    for lv = 1 : velocityNumber
-        for lw = 0 : wavelengthNumber
-            counter = counter+1;
-            thetaU = la/angleNumber*pi;
-            c = lv/velocityNumber*cMax;
-            lambdaU = lw/wavelengthNumber*lambdaMax;
-            for k = 1:N
-                compteur = compteur+1;
-                temp=zeros(sdn,sdn);
-                for i = 1:sdn
-                    for j = 1:sdn
-                        temp(i,j)=1+cos(lambdaU*i*dx*cos(thetaU)+lambdaU*j*dy*sin(thetaU)+k*Delta*c);
-                    end
-                end
-                controls(:,k,counter) = temp(:);
+for iv = 1:velocityN
+    for ik = 1:kN
+
+        counter = counter + 1;
+
+        % Parameters
+        c = iv/velocityN * cMax;
+        k = ik/kN * kMax;
+
+        for it = 1:N
+            t = (it-1) * Delta;
+            temp = zeros(sdn,1);
+
+            for ix = 1:sdn
+                x = ix * dx;
+                temp(ix) = 1 + cos( k*x - c*k*t );
             end
-            triples(:,counter) = [thetaU;c;lambdaU];
+
+            controls(:, it, counter) = temp;
         end
+
+        inputParameters(:, counter) = [c; k];
     end
 end
 
+
+counter = counter + 1;
+
+for it = 1:N
+    controls(:, it, counter) = ones(sdn, 1);
+end
+
+inputParameters(:, counter) = [NaN; 0];   
+
+
 controls = controls(:,:,1:counter);
+inputParameters  = inputParameters(:,1:counter);
 
-triples = triples(:,1:counter);
+tStepEnd = toc(tStepStart);
 
+fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
 
 %%
 
 %%%% Collection of Fisher matrices
 
+fprintf(['\n','Fisher Matrices computations... \n'])
+
 K = size(controls,3);
 
 M = zeros(p,p,K);
 
-tic
+tStepStart = tic;
 
 for i = 1:K
     u = controls(:,:,i);
@@ -233,22 +279,41 @@ for i = 1:K
     Mi = zeros(p,p);
     L2u = max(1/Tf*u'*u/N,0.000001);
     u = u/sqrt(L2u);
+    
+    Hju = zeros(N*q,1,p);
 
-    for j= 1:p
+    for j = 1:p
+        Hju(:,:,j)= Hb(:,:,j)*u;
+    end
+    for j = 1:p
         for k = 1:j
-            val = u'*L(:,:,j,k)*u+Q(j,k);
-            Mi(j,k) = val;
-            Mi(k,j) = val;
+            uLu_jk = (Hju(:,:,k)'*SigmaBoldinv*Hju(:,:,j)+Hju(:,:,j)'*SigmaBoldinv*Hju(:,:,k))/2;
+            Mi(j,k) = uLu_jk+Q(j,k);
+            Mi(k,j) = uLu_jk+Q(j,k);
         end
     end
 
     M(:,:,i) = Mi;
-    fprintf(['control ',num2str(i),'/',num2str(K),'\n'])
+    
+    %fprintf(['control ',num2str(i),'/',num2str(K),'\n'])
+    if mod(i,floor(K/10))==0
+        fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
+        tStepEnd = toc(tStepStart);
+        fprintf(['(',num2str(tStepEnd,3),' s).\n'])
+        tStepStart = tic;
+    end
 end
 
-toc
+
+tStepEnd = toc(tStepStart);
+
 %%
 
+timeTakenCheck = toc(timeTakenStart);
+
+fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,' s\n'])
+
+fprintf([' \n'])
 
 %%%% Finding the best vertex for initialization
 
@@ -282,7 +347,7 @@ Mnew = Mold;
 
 %%
 
-maxStepSearch = 100;
+maxStepSearch = 200;
 i = 0;
 improvementThreshold = 0.000001;
 improvement = 1;
@@ -339,16 +404,16 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     Mnew = (1-alpha) * Mold + alpha * Mks;
     wnew = (1-alpha) * wold + alpha * wks;
     
-    %display(logdet(Mnew))
 
     improvement = (logdet(Mnew)-logdet(Mold))/abs(logdet(Mold));
-
-    display(i)
-    display(improvement)
+    
+    if mod(i,10)== 0 
+        fprintf(['Step of search : ', num2str(i), ', score improvement : ', num2str(improvement), '\n'])
+    end
 
 end
 
-%%
+
 
 fprintf(['Max score of a matrix : ', num2str(maxScore), '\n'])
 
@@ -365,26 +430,37 @@ threshold = 0.001;
 idx = find(abs(wnew) > threshold);
 %fprintf("weights = " + num2str(wnew(idx(1)))+", " + num2str(wnew(idx(2))))
 %display(sum(wnew(idx)))
-%display(triples(:,idx))
+%display(inputParameters(:,idx))
+
+
+timeTakenCheck = toc(timeTakenStart);
+
+fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2str(floor(timeTakenCheck/60)),' min ',num2str(mod(timeTakenCheck,60),2),'s)\n'])
+
 
 %%
+
+
+
 pause(1)
 figure(1)
 clf
+
+
+
 for l=1:N
     for k=1:length(idx)
-        subplot(1,length(idx),k)
+        subplot(length(idx),1,k)
         
-        imagesc(reshape(controls(:,l,idx(k)), sdn, sdn))
-        colormap(gray); 
-        axis image; 
+        plot(controls(:,l,idx(k)))
+        ylim([0 2]) 
+        xlim([1,dn])
         title("weight = " + num2str(wnew(idx(k))) + ...
-            ", \theta = " + num2str(triples(1,idx(k))/pi) + ...
-            "\pi, c = " + num2str(triples(2,idx(k)))+ ...
-            ", \lambda = " + num2str(triples(3,idx(k))/pi)+"\pi")
+            ", c = " + num2str(inputParameters(1,idx(k)))+ ...
+            ", k = " + num2str(inputParameters(2,idx(k))))
         drawnow
         
-        pause(0.02)
+        pause(0.001)
     end
 end
 
