@@ -22,7 +22,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 40; % size of one layer
+dn = 30; % size of one layer
 
 n = 3 * dn;
 
@@ -97,20 +97,12 @@ C = sparse([zeros(q,2*dn),eye(q,dn)]);
 thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
 
 thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
-
-% thetaTrue = [0,0,0,0,0,0,0];
-
-A = Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3);
-condition = (max(real(eig(A))) < -.25) || (compteur > stop);
-compteur = compteur+1;
+thetaTrue = 0.*thetaData;
 
 
-%display(unique(eig(A)))
+A = sparse(Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3));
 
-%display(max(real(unique(eig(A)))))
-
-maxReEigA=max(real(unique(eig(A))));
-
+maxReEigA=max(real(unique(eigs(A))));
 
 fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
@@ -183,7 +175,7 @@ end
 
 for i = 1:p
     for j = 1:i
-        Q(i,j) = 0.5*sum(sum(halfQ(:,:,i).*halfQ(:,:,j)'));
+        Q(i,j) = 0.5*trAB(halfQ(:,:,i),halfQ(:,:,j));
         Q(j,i) = Q(i,j);
     end
 end
@@ -281,13 +273,18 @@ for i = 1:K
     u = u/sqrt(L2u);
     
     Hju = zeros(N*q,1,p);
+    SBiHju = zeros(N*q,1,p);
 
     for j = 1:p
-        Hju(:,:,j)= Hb(:,:,j)*u;
+        aux = Hb(:,:,j);
+        Hju(:,:,j) = aux*u;
+        %Hju(:,:,j) = Hb(:,:,j)*u;
+        SBiHju(:,:,j) = SigmaBoldinv*Hju(:,:,j);
     end
+
     for j = 1:p
         for k = 1:j
-            uLu_jk = (Hju(:,:,k)'*SigmaBoldinv*Hju(:,:,j)+Hju(:,:,j)'*SigmaBoldinv*Hju(:,:,k))/2;
+            uLu_jk = (Hju(:,:,k)'*SBiHju(:,:,j)+Hju(:,:,j)'*SBiHju(:,:,k))/2;
             Mi(j,k) = uLu_jk+Q(j,k);
             Mi(k,j) = uLu_jk+Q(j,k);
         end
@@ -364,7 +361,8 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     maxDer = -Inf;
     maxDerIndex = 0;
     for k = 1:K                     
-        der = trace(inv(Mold)*M(:,:,k));
+        %der = trace(inv(Mold)*M(:,:,k));
+        der = trAB(inv(Mold),M(:,:,k));
         if maxDer < der
             maxDer = der;
             maxDerIndex = k;
@@ -392,7 +390,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     
     for j = 1:maxBisec
         c = (a+b)/2;
-        if trace(inv((1-c)*Mold+c* Mks)*(Mks-Mold))>=0
+        if trAB(inv((1-c)*Mold+c* Mks),(Mks-Mold))>=0
             a = c;
         else 
             b = c;

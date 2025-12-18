@@ -45,28 +45,24 @@ GammaAG = gaussianPooling1DGraph(dn,delta,sigmaAG);
 id = speye(dn);
 zz = sparse(dn,dn);
 
-Acol = zeros(n,n,p+1);
+% CHANGED: Use cell array for Acol
+Acol = cell(p+1, 1);
 
-Acol(:,:,1) = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
-Acol(:,:,2) = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
-Acol(:,:,3) = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
+Acol{1} = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
+Acol{2} = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
+Acol{3} = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
 
-Acol(:,:,4) = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
-Acol(:,:,5) = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
+Acol{4} = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
+Acol{5} = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
 
-Acol(:,:,6) = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
-Acol(:,:,7) = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
+Acol{6} = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
+Acol{7} = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
 
-%Acol(:,:,8) = [zz , zz, zz ; zz, zz, zz ; zz, zz, zz];
-
-Acol(:,:,8) = 1/tauB*Acol(:,:,1) + 1/tauA*Acol(:,:,2) + 1/tauG*Acol(:,:,3) ...
-    + wm*Acol(:,:,4) + wp*Acol(:,:,5) + wBG*Acol(:,:,6) + wAG*Acol(:,:,7);
-
+Acol{8} = 1/tauB*Acol{1} + 1/tauA*Acol{2} + 1/tauG*Acol{3} ...
+    + wm*Acol{4} + wp*Acol{5} + wBG*Acol{6} + wAG*Acol{7};
 
 
-
-
-Tf=10*pi; % Time of the experiment
+Tf=1; % Time of the experiment
 
 prec = 500;   % must be even
 
@@ -74,20 +70,12 @@ Delta = Tf/N;
 
 %%%% Determination of 
 
-% sigma = 0.5*eye(n);
-% Sigmap = 0.5;
-
 sigma = 0.1*eye(n);
 Sigmap = 0.1*eye(q);
-
-
-% sigma = 0.01*eye(n);
-% Sigmap = 10^(-4);
 
 B = sparse([eye(dn,m);zeros(2*dn,m)]);
 
 C = sparse([zeros(q,2*dn),eye(q,dn)]);
-
 
 
 %%% Contraction of A.
@@ -95,35 +83,29 @@ C = sparse([zeros(q,2*dn),eye(q,dn)]);
 thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
 
 thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
+%thetaTrue = 0.*thetaData;
 
-% thetaTrue = [0,0,0,0,0,0,0];
+% CHANGED: Sum over cell array
+A = Acol{p+1};
+for i = 1:p
+    A = A + thetaTrue(i) * Acol{i};
+end
 
-A = Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3);
-condition = (max(real(eig(A))) < -.25) || (compteur > stop);
-compteur = compteur+1;
-
-
-%display(unique(eig(A)))
-
-%display(max(real(unique(eig(A)))))
-
-maxReEigA=max(real(unique(eig(A))));
-
+maxReEigA = max(real(eigs(A)));
 
 fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
 
 %%%% Construction of elements
 
-
 fprintf(['\n','Dynamics and variance pre-computation... '])
 
 tStepStart = tic;
 
 F = buildF(A, Delta);
-G = buildGASparse(A, B, Delta,prec);
+G = buildGASparse(A, B, Delta, prec);
 Sigma = buildSigmaASparse(A, sigma, Delta, prec);
-SigmaBold = buildSigmaBold(C,C/2,F,Sigma,Sigmap,N);
+SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
 SigmaBoldinv = inv(SigmaBold);
 
 tStepEnd = toc(tStepStart);
@@ -132,18 +114,19 @@ fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
-Hb = zeros(N*q,N*m,p);
-dSb = zeros(N*q,N*q,p);
+% CHANGED: Use cell arrays instead of 3D arrays
+Hb = cell(p, 1);
+dSb = cell(p, 1);
 
 for i = 1:p
     fprintf(['Parameter ',num2str(i),'/',num2str(p),' '])
     tStepStart = tic;
     
-    Ab = [A, zeros(n,n); Acol(:,:,i), A];
+    Ab = [A, zeros(n,n); Acol{i}, A];
     
     Bb = [B; zeros(n,m)];
     Cb = [zeros(q,n), C];
-    Cbp = [C, zeros(q,n),];
+    Cbp = [C, zeros(q,n)];
     sigmab = [sigma, zeros(n,n); zeros(n,n), zeros(n,n)];
 
     Fb = buildF(Ab, Delta);
@@ -152,9 +135,8 @@ for i = 1:p
     
     Sigmab = buildSigmaASparse(Ab, sigmab, Delta, prec);
     
-
-    Hb(:,:,i) = buildH(Cb, Fb, Gb, N);
-    dSb(:,:,i) = buildSigmaBold(Cb,Cbp,Fb,Sigmab,zeros(q,q),N);
+    Hb{i} = buildH(Cb, Fb, Gb, N);
+    dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
     
     tStepEnd = toc(tStepStart);
 
@@ -163,25 +145,26 @@ end
 
 timeTakenCheck = toc(timeTakenStart);
 
-fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s)\n'])
+fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
 fprintf(['\n','Q matrix computation... \n'])
 
 
 Q = zeros(p,p);
-halfQ = zeros(N*q,N*q,p);
+% CHANGED: Use cell array for halfQ
+halfQ = cell(p, 1);
 
 for i = 1:p
     fprintf(['Parameter ',num2str(i),'/',num2str(p)])
     tStepStart = tic;
-    halfQ(:,:,i) = SigmaBoldinv*dSb(:,:,i);
+    halfQ{i} = SigmaBoldinv * dSb{i};
     tStepEnd = toc(tStepStart);
     fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
 end
 
 for i = 1:p
     for j = 1:i
-        Q(i,j) = 0.5*sum(sum(halfQ(:,:,i).*halfQ(:,:,j)'));
+        Q(i,j) = 0.5*trAB(halfQ{i}, halfQ{j});
         Q(j,i) = Q(i,j);
     end
 end
@@ -194,7 +177,6 @@ fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'
 
 %%%% Collection of controls
 
-
 %%% Test family 
 
 fprintf(['\n','Input collection... '])
@@ -204,28 +186,29 @@ tStepStart = tic;
 sdn = dn;
 dx  = 1/sdn;
 
-Kbound  = 100000;
+cMax = 10;
+kMax = 10*2*pi;   % bound on the wave number
+
+velocityN = 30;
+kN = 30;
+
+% CHANGED: Pre-allocate to exact size, use cell array for controls
+K = velocityN * kN + 1;  % Total number of controls
+controls = cell(K, 1);
+inputParameters = zeros(2, K);   % [c ; k]
+
 counter = 0;
 
-controls = zeros(m, N, Kbound);
-
-cMax = 2;
-kMax = 2*2*pi;   % borne pour le nombre d'onde
-
-velocityNumber = 10;
-kNumber        = 10;
-
-inputParameters = zeros(2, Kbound);   % [c ; k]
-
-for iv = 1:velocityNumber
-    for ik = 1:kNumber
+for iv = 1:velocityN
+    for ik = 1:kN
 
         counter = counter + 1;
 
-        % Paramètres
-        c = iv/velocityNumber * cMax;
-        k = ik/kNumber * kMax;
+        % Parameters
+        c = iv/velocityN * cMax;
+        k = ik/kN * kMax;
 
+        control_temp = zeros(m, N);
         for it = 1:N
             t = (it-1) * Delta;
             temp = zeros(sdn,1);
@@ -235,9 +218,10 @@ for iv = 1:velocityNumber
                 temp(ix) = 1 + cos( k*x - c*k*t );
             end
 
-            controls(:, it, counter) = temp;
+            control_temp(:, it) = temp;
         end
-
+        
+        controls{counter} = control_temp;
         inputParameters(:, counter) = [c; k];
     end
 end
@@ -245,15 +229,13 @@ end
 
 counter = counter + 1;
 
+control_temp = zeros(m, N);
 for it = 1:N
-    controls(:, it, counter) = ones(sdn, 1);
+    control_temp(:, it) = ones(sdn, 1);
 end
-
+controls{counter} = control_temp;
 inputParameters(:, counter) = [NaN; 0];   
 
-
-controls = controls(:,:,1:counter);
-inputParameters  = inputParameters(:,1:counter);
 
 tStepEnd = toc(tStepStart);
 
@@ -265,35 +247,37 @@ fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
 
 fprintf(['\n','Fisher Matrices computations... \n'])
 
-K = size(controls,3);
-
-M = zeros(p,p,K);
+% CHANGED: Use cell array for M
+M = cell(K, 1);
 
 tStepStart = tic;
 
 for i = 1:K
-    u = controls(:,:,i);
+    u = controls{i};
     u = u(:);
     Mi = zeros(p,p);
-    L2u = max(1/Tf*u'*u/N,0.000001);
+    L2u = max(1/Tf*u'*u/N, 0.000001);
     u = u/sqrt(L2u);
     
-    Hju = zeros(N*q,1,p);
+    % CHANGED: Use regular 2D arrays (columns) for temporary storage
+    Hju = zeros(N*q, p);
+    SBiHju = zeros(N*q, p);
 
     for j = 1:p
-        Hju(:,:,j)= Hb(:,:,j)*u;
+        Hju(:,j) = Hb{j} * u;
+        SBiHju(:,j) = SigmaBoldinv * Hju(:,j);
     end
+
     for j = 1:p
         for k = 1:j
-            uLu_jk = (Hju(:,:,k)'*SigmaBoldinv*Hju(:,:,j)+Hju(:,:,j)'*SigmaBoldinv*Hju(:,:,k))/2;
-            Mi(j,k) = uLu_jk+Q(j,k);
-            Mi(k,j) = uLu_jk+Q(j,k);
+            uLu_jk = (Hju(:,k)' * SBiHju(:,j) + Hju(:,j)' * SBiHju(:,k))/2;
+            Mi(j,k) = uLu_jk + Q(j,k);
+            Mi(k,j) = uLu_jk + Q(j,k);
         end
     end
 
-    M(:,:,i) = Mi;
+    M{i} = Mi;
     
-    %fprintf(['control ',num2str(i),'/',num2str(K),'\n'])
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
         tStepEnd = toc(tStepStart);
@@ -319,18 +303,13 @@ maxScore = -Inf;
 maxScoreIndex = 0;
 
 for k = 1:K
-    if maxScore < logdet(M(:,:,k))
-        maxScore = logdet(M(:,:,k));
+    if maxScore < logdet(M{k})
+        maxScore = logdet(M{k});
         maxScoreIndex = k;
     end
-    %maxscorevertex = max(maxscorevertex,log(det(M(:,:,k))));
-
 end
 
-Mtop = M(:,:,maxScoreIndex);
-
-%w = zeros(K,1);
-%w(maxScoreIndex) = 1; % weight initialization
+Mtop = M{maxScoreIndex};
 
 
 maxBisec = 20;
@@ -338,7 +317,11 @@ maxBisec = 20;
 wold = ones(K,1)/K;
 wnew = wold;
 
-Minit = sum(M .* reshape(wnew, 1, 1, K), 3);
+% CHANGED: Compute weighted sum with cell array
+Minit = zeros(p,p);
+for k = 1:K
+    Minit = Minit + wnew(k) * M{k};
+end
 
 Mold = Minit;
 Mnew = Mold;
@@ -350,7 +333,7 @@ i = 0;
 improvementThreshold = 0.000001;
 improvement = 1;
 
-while (i < maxStepSearch)&& (improvement > improvementThreshold)
+while (i < maxStepSearch) && (improvement > improvementThreshold)
     
     i = i+1;
 
@@ -362,7 +345,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     maxDer = -Inf;
     maxDerIndex = 0;
     for k = 1:K                     
-        der = trace(inv(Mold)*M(:,:,k));
+        der = trAB(inv(Mold), M{k});
         if maxDer < der
             maxDer = der;
             maxDerIndex = k;
@@ -373,9 +356,9 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     
     % Step 2: search for best step
 
-    Mks = M(:,:,ks);
+    Mks = M{ks};
     wks = zeros(K, 1);
-    wks(ks)=1;
+    wks(ks) = 1;
     
     %%%% Adaptive step 
     
@@ -390,7 +373,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     
     for j = 1:maxBisec
         c = (a+b)/2;
-        if trace(inv((1-c)*Mold+c* Mks)*(Mks-Mold))>=0
+        if trAB(inv((1-c)*Mold + c*Mks), (Mks-Mold)) >= 0
             a = c;
         else 
             b = c;
@@ -405,7 +388,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
 
     improvement = (logdet(Mnew)-logdet(Mold))/abs(logdet(Mold));
     
-    if mod(i,10)== 0 
+    if mod(i,10) == 0 
         fprintf(['Step of search : ', num2str(i), ', score improvement : ', num2str(improvement), '\n'])
     end
 
@@ -420,37 +403,28 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
 
-
-
-
 threshold = 0.001;
 
 idx = find(abs(wnew) > threshold);
-%fprintf("weights = " + num2str(wnew(idx(1)))+", " + num2str(wnew(idx(2))))
-%display(sum(wnew(idx)))
-%display(inputParameters(:,idx))
 
 
 timeTakenCheck = toc(timeTakenStart);
 
-fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s (',num2str(floor(timeTakenCheck/60)),' min ',num2str(floor(timeTakenCheck/60)),'s)\n'])
+fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2str(floor(timeTakenCheck/60)),' min ',num2str(mod(timeTakenCheck,60),2),'s)\n'])
 
 
 %%
 
 
-
-pause(1)
-figure(1)
+figure(2)
 clf
-
-
-
+pause(1)
 for l=1:N
     for k=1:length(idx)
         subplot(length(idx),1,k)
         
-        plot(controls(:,l,idx(k)))
+        control_plot = controls{idx(k)};
+        plot(control_plot(:,l))
         ylim([0 2]) 
         xlim([1,dn])
         title("weight = " + num2str(wnew(idx(k))) + ...
@@ -461,4 +435,3 @@ for l=1:N
         pause(0.001)
     end
 end
-
