@@ -22,7 +22,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 30; % size of one layer
+dn = 50; % size of one layer
 
 n = 3 * dn;
 

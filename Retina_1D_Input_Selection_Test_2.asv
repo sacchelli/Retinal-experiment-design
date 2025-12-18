@@ -241,8 +241,6 @@ tStepEnd = toc(tStepStart);
 
 fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
 
-fprintf(['There are ', num2str(K),' inputs in this experiment'])
-
 %%
 
 %%%% Collection of Fisher matrices

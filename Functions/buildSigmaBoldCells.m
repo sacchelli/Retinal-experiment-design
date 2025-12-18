@@ -21,25 +21,16 @@ for i = 2:N
     C2Fpowers{i} = C2Fk;
 end
 
-% After computing C1Fpowers and C2Fpowers, precompute products with Sigma
-C1FpowersSigma = cell(N, 1);
-C2FpowersSigma = cell(N, 1);
-
-for i = 1:N
-    C1FpowersSigma{i} = C1Fpowers{i} * Sigma;
-    C2FpowersSigma{i} = C2Fpowers{i} * Sigma;
-end
-
+% 
 % presum{k} stores all q×q matrices for time k (d goes from 0 to k-1)
 presum = cell(N, 1);
 for k = 1:N
-    presum{k} = cell(k, 1);
+    presum{k} = cell(k, 1);  % For k, we need k entries (d = 0 to k-1)
     for d = 0:k-1
-        presum{k}{d+1} = C1FpowersSigma{k} * C2Fpowers{k-d}' + ...
-                         C2FpowersSigma{k} * C1Fpowers{k-d}';
+        presum{k}{d+1} = C1Fpowers{k} * Sigma * C2Fpowers{k-d}' + ...
+                         C2Fpowers{k} * Sigma * C1Fpowers{k-d}';
     end
 end
-
 
 SigmaAux = zeros(q*N, q*N);
 
