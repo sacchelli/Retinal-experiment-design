@@ -7,9 +7,12 @@ rng(1)
 
 %%%% Data // following the reference.
 
-delta = 0.00389; % cm
-sigmaBG = 0.15; % cm
-sigmaAG = 0.15; % cm
+
+retinalWidth = 2; % mm 
+
+%delta = 0.00389; % mm
+sigmaBG = 0.15; % mm
+sigmaAG = 0.15; % mm
 
 tauB = 57.5139; % ms
 tauA = 86.6298; % ms
@@ -22,7 +25,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 100; % size of one layer
+dn = 50; % size of one layer
 
 n = 3 * dn;
 
@@ -32,7 +35,10 @@ p = 7;
 
 q = dn;
 
-N = 100; % Time window
+N = 100; % Number of measurements
+
+
+delta = retinalWidth/dn; % distance between cells
 
 
 %%%% Model
@@ -45,7 +51,7 @@ GammaAG = gaussianPooling1DGraph(dn,delta,sigmaAG);
 id = speye(dn);
 zz = sparse(dn,dn);
 
-% CHANGED: Use cell array for Acol
+
 Acol = cell(p+1, 1);
 
 Acol{1} = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
@@ -62,11 +68,14 @@ Acol{8} = 1/tauB*Acol{1} + 1/tauA*Acol{2} + 1/tauG*Acol{3} ...
     + wm*Acol{4} + wp*Acol{5} + wBG*Acol{6} + wAG*Acol{7};
 
 
-Tf=1; % Time of the experiment
+
+Delta = max([tauA,tauB,tauG])/10;
+
+Tf = N* Delta; % Time of the experiment
 
 prec = 500;   % must be even
 
-Delta = Tf/N;
+
 
 %%%% Determination of 
 
@@ -78,20 +87,22 @@ B = sparse([eye(dn,m);zeros(2*dn,m)]);
 C = sparse([zeros(q,2*dn),eye(q,dn)]);
 
 
-%%% Contraction of A.
+%%% Contraction of A
 
 thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
 
-thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
+%thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
 %thetaTrue = 0.*thetaData;
+thetaTrue = thetaData;
 
-% CHANGED: Sum over cell array
 A = Acol{p+1};
 for i = 1:p
     A = A + thetaTrue(i) * Acol{i};
 end
 
 maxReEigA = max(real(eigs(A)));
+
+
 
 fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
@@ -114,7 +125,7 @@ fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
-% CHANGED: Use cell arrays instead of 3D arrays
+%
 Hb = cell(p, 1);
 dSb = cell(p, 1);
 
@@ -174,7 +185,7 @@ timeTakenCheck = toc(timeTakenStart);
 
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
-
+%%
 %%%% Collection of controls
 
 %%% Test family 
@@ -184,29 +195,32 @@ fprintf(['\n','Input collection... '])
 tStepStart = tic;
 
 sdn = dn;
-dx  = 1/sdn;
+dx  = retinalWidth/(sdn-1);
 
-cMax = 10;
-kMax = 10*2*pi;   % bound on the wave number
+cMax = 1/Tf;   % max wave velocity
+kMax = 2*pi*sdn/retinalWidth;   % max wave number:
+kMin = 2*pi/retinalWidth;   % min wave number
+kMin = 4*kMin
 
-velocityN = 30;
-kN = 30;
+%%%%
+velocityN = 20;
+kN = 20;
 
-% CHANGED: Pre-allocate to exact size, use cell array for controls
-K = velocityN * kN + 1;  % Total number of controls
+% Pre-allocate to exact size, use cell array for controls
+K = (velocityN+1) * (kN) + 1;  % Total number of controls
 controls = cell(K, 1);
 inputParameters = zeros(2, K);   % [c ; k]
 
 counter = 0;
 
-for iv = 1:velocityN
+for iv = 0:velocityN
     for ik = 1:kN
 
         counter = counter + 1;
 
         % Parameters
         c = iv/velocityN * cMax;
-        k = ik/kN * kMax;
+        kNumber = ik/kN * (kMax-kMin)+kMin;
 
         control_temp = zeros(m, N);
         for it = 1:N
@@ -215,14 +229,14 @@ for iv = 1:velocityN
 
             for ix = 1:sdn
                 x = ix * dx;
-                temp(ix) = 1 + cos( k*x - c*k*t );
+                temp(ix) = 1 + cos( kNumber*x - c*kNumber*t );
             end
 
             control_temp(:, it) = temp;
         end
         
         controls{counter} = control_temp;
-        inputParameters(:, counter) = [c; k];
+        inputParameters(:, counter) = [c; kNumber];
     end
 end
 
@@ -249,7 +263,7 @@ fprintf(['There are ', num2str(K),' inputs in this experiment'])
 
 fprintf(['\n','Fisher Matrices computations... \n'])
 
-% CHANGED: Use cell array for M
+% Use cell array for M
 M = cell(K, 1);
 
 tStepStart = tic;
@@ -258,10 +272,9 @@ for i = 1:K
     u = controls{i};
     u = u(:);
     Mi = zeros(p,p);
-    L2u = max(1/Tf*u'*u/N, 0.000001);
+    L2u = max(1/Tf*(u'*u)/N, 0.000001);
     u = u/sqrt(L2u);
     
-    % CHANGED: Use regular 2D arrays (columns) for temporary storage
     Hju = zeros(N*q, p);
     SBiHju = zeros(N*q, p);
 
@@ -291,7 +304,7 @@ end
 
 tStepEnd = toc(tStepStart);
 
-%%
+%% Input selection step
 
 timeTakenCheck = toc(timeTakenStart);
 
@@ -319,7 +332,7 @@ maxBisec = 20;
 wold = ones(K,1)/K;
 wnew = wold;
 
-% CHANGED: Compute weighted sum with cell array
+% Compute weighted sum
 Minit = zeros(p,p);
 for k = 1:K
     Minit = Minit + wnew(k) * M{k};
@@ -328,11 +341,11 @@ end
 Mold = Minit;
 Mnew = Mold;
 
-%%
 
-maxStepSearch = 200;
+
+maxStepSearch = 1000;
 i = 0;
-improvementThreshold = 0.000001;
+improvementThreshold = 10^(-9);
 improvement = 1;
 
 while (i < maxStepSearch) && (improvement > improvementThreshold)
@@ -405,7 +418,7 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
 
-threshold = 0.001;
+threshold = 0.01;
 
 idx = find(abs(wnew) > threshold);
 
@@ -418,22 +431,83 @@ fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2s
 %%
 
 
-figure(2)
+figure(1)
 clf
 pause(1)
+
+% Define spatial domain
+
+dx = retinalWidth/(sdn-1);
+x = 0:dx:(dn-1)*dx;
+
+lidx = length(idx);
+info = cell(lidx,3);
+for k=1:length(idx)
+    info{k,1} = num2str(wnew(idx(k)));
+    info{k,2} = num2str(inputParameters(1,idx(k)));
+    info{k,3} = num2str(inputParameters(2,idx(k)));
+end
+
 for l=1:N
     for k=1:length(idx)
         subplot(length(idx),1,k)
-        
         control_plot = controls{idx(k)};
-        plot(control_plot(:,l))
-        ylim([0 2]) 
-        xlim([1,dn])
-        title("weight = " + num2str(wnew(idx(k))) + ...
-            ", c = " + num2str(inputParameters(1,idx(k)))+ ...
-            ", k = " + num2str(inputParameters(2,idx(k))))
-        drawnow
         
+        % Piecewise constant plot using stairs
+        stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        
+        ylim([0 2])
+        xlim([0, (dn-1)*dx])
+        xlabel('Position (mm)')
+        ylabel('Control')
+        title("weight = " + info{k,1} + ...
+            ", c = " + info{k,2} + ...
+            ", k = " + info{k,3})
+        drawnow
+        pause(0.001)
+    end
+end
+
+
+
+
+%%
+
+
+figure(2)
+clf
+pause(1)
+
+
+
+lidx = length(idx);
+info = cell(lidx,3);
+for k=1:length(idx)
+    info{k,1} = num2str(wnew(idx(k)));
+    info{k,2} = num2str(inputParameters(1,idx(k)));
+    info{k,3} = num2str(inputParameters(2,idx(k)));
+end
+
+for l=1:N
+    for k=1:length(idx)
+        subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
+        
+        % Piecewise constant plot using stairs
+        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        imagesc(control_plot(:,l)')
+        colormap(gray); 
+        axis image;
+        %ylim([0 2])
+        %xlim([0, (dn-1)*dx])
+        xlabel('Position (mm)')
+        %ylabel('Control')
+        title("weight = " + info{k,1} + ...
+            ", c = " + info{k,2} + ...
+            ", k = " + info{k,3})
+        drawnow
         pause(0.001)
     end
 end
