@@ -69,7 +69,7 @@ Acol{8} = 1/tauB*Acol{1} + 1/tauA*Acol{2} + 1/tauG*Acol{3} ...
 
 
 
-Delta = max([tauA,tauB,tauG])/10;
+Delta = max([tauA,tauB,tauG])/5;
 
 Tf = N* Delta; % Time of the experiment
 
@@ -197,17 +197,22 @@ tStepStart = tic;
 sdn = dn;
 dx  = retinalWidth/(sdn-1);
 
-cMax = 1/Tf;   % max wave velocity
+cMax = 2/Tf;   % max wave velocity
 kMax = 2*pi*sdn/retinalWidth;   % max wave number:
 kMin = 2*pi/retinalWidth;   % min wave number
-kMin = 4*kMin
+%kMin = 4*kMin
 
 %%%%
-velocityN = 20;
-kN = 20;
+velocityN = 30;
+kN = 30;
 
 % Pre-allocate to exact size, use cell array for controls
-K = (velocityN+1) * (kN) + 1;  % Total number of controls
+
+%K = (velocityN+1) * (kN) + 1;  % Total number of controls +1 for const input
+
+K = (velocityN+1) * (kN) + 2;  % Total number of controls +2 for const & random
+%input
+
 controls = cell(K, 1);
 inputParameters = zeros(2, K);   % [c ; k]
 
@@ -240,6 +245,7 @@ for iv = 0:velocityN
     end
 end
 
+% constant input
 
 counter = counter + 1;
 
@@ -248,7 +254,21 @@ for it = 1:N
     control_temp(:, it) = ones(sdn, 1);
 end
 controls{counter} = control_temp;
+
 inputParameters(:, counter) = [NaN; 0];   
+
+% random input
+
+counter = counter + 1;
+
+control_temp = zeros(m, N);
+for it = 1:N
+    control_temp(:, it) = rand(sdn, 1);
+end
+controls{counter} = control_temp;
+
+inputParameters(:, counter) = [NaN; NaN];   
+
 
 
 tStepEnd = toc(tStepStart);
@@ -291,7 +311,7 @@ for i = 1:K
         end
     end
 
-    M{i} = Mi;
+    M{i} = Mi/(N*q);
     
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
@@ -472,42 +492,42 @@ end
 
 
 
-%%
-
-
-figure(2)
-clf
-pause(1)
-
-
-
-lidx = length(idx);
-info = cell(lidx,3);
-for k=1:length(idx)
-    info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k)));
-    info{k,3} = num2str(inputParameters(2,idx(k)));
-end
-
-for l=1:N
-    for k=1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-        
-        % Piecewise constant plot using stairs
-        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
-        imagesc(control_plot(:,l)')
-        colormap(gray); 
-        axis image;
-        %ylim([0 2])
-        %xlim([0, (dn-1)*dx])
-        xlabel('Position (mm)')
-        %ylabel('Control')
-        title("weight = " + info{k,1} + ...
-            ", c = " + info{k,2} + ...
-            ", k = " + info{k,3})
-        drawnow
-        pause(0.001)
-    end
-end
+% %%
+% 
+% 
+% figure(2)
+% clf
+% pause(1)
+% 
+% 
+% 
+% lidx = length(idx);
+% info = cell(lidx,3);
+% for k=1:length(idx)
+%     info{k,1} = num2str(wnew(idx(k)));
+%     info{k,2} = num2str(inputParameters(1,idx(k)));
+%     info{k,3} = num2str(inputParameters(2,idx(k)));
+% end
+% 
+% for l=1:N
+%     for k=1:length(idx)
+%         subplot(length(idx),1,k)
+%         control_plot = controls{idx(k)};
+% 
+%         % Piecewise constant plot using stairs
+%         %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+%         % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+%         imagesc(control_plot(:,l)')
+%         colormap(gray); 
+%         axis image;
+%         %ylim([0 2])
+%         %xlim([0, (dn-1)*dx])
+%         xlabel('Position (mm)')
+%         %ylabel('Control')
+%         title("weight = " + info{k,1} + ...
+%             ", c = " + info{k,2} + ...
+%             ", k = " + info{k,3})
+%         drawnow
+%         pause(0.001)
+%     end
+% end
