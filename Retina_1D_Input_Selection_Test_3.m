@@ -3,14 +3,16 @@ clc
 
 timeTakenStart = tic;
 
-rng(1)
+seed = 1;
+
+rng(seed);
 
 %%%% Data // following the reference.
 
 
 retinalWidth = 2; % mm 
 
-%delta = 0.00389; % cm
+%delta = 0.00389; % mm
 sigmaBG = 0.15; % mm
 sigmaAG = 0.15; % mm
 
@@ -25,7 +27,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 50; % size of one layer
+dn = 100; % size of one layer
 
 n = 3 * dn;
 
@@ -69,9 +71,9 @@ Acol{8} = 1/tauB*Acol{1} + 1/tauA*Acol{2} + 1/tauG*Acol{3} ...
 
 
 
-Delta = max([tauA,tauB,tauG]);
+Delta = max([tauA,tauB,tauG])/5;
 
-Tf = N* Delta; % Time of the experiment
+Tf = N * Delta; % Time of the experiment
 
 prec = 500;   % must be even
 
@@ -119,6 +121,14 @@ Sigma = buildSigmaASparse(A, sigma, Delta, prec);
 SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
 SigmaBoldinv = inv(SigmaBold);
 
+
+% Use this to accelerate the computations (hopefully) by killing off
+% diagonal terms:
+
+SigmaBoldinv = sparse(bandDiagonalFilter(SigmaBoldinv,20*q)); 
+
+
+
 tStepEnd = toc(tStepStart);
 
 fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
@@ -146,8 +156,11 @@ for i = 1:p
     
     Sigmab = buildSigmaASparse(Ab, sigmab, Delta, prec);
     
-    Hb{i} = buildH(Cb, Fb, Gb, N);
-    dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
+    % Hb{i} = buildH(Cb, Fb, Gb, N);
+    % dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
+
+    Hb{i} = sparse(bandDiagonalFilter(buildH(Cb, Fb, Gb, N),20*q));
+    dSb{i} = sparse(bandDiagonalFilter(buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N),20*q));
     
     tStepEnd = toc(tStepStart);
 
@@ -162,13 +175,12 @@ fprintf(['\n','Q matrix computation... \n'])
 
 
 Q = zeros(p,p);
-% CHANGED: Use cell array for halfQ
 halfQ = cell(p, 1);
 
 for i = 1:p
     fprintf(['Parameter ',num2str(i),'/',num2str(p)])
     tStepStart = tic;
-    halfQ{i} = SigmaBoldinv * dSb{i};
+    halfQ{i} = full(SigmaBoldinv) * full(dSb{i});
     tStepEnd = toc(tStepStart);
     fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
 end
@@ -194,63 +206,33 @@ fprintf(['\n','Input collection... '])
 
 tStepStart = tic;
 
-sdn = dn;
-dx  = retinalWidth/(sdn-1);
 
-cMax = 1/Tf; % max wave velocity
-%cMin = 2/Tf; % max wave velocity
-kMax = 2*pi*sdn/retinalWidth;   % max wave number:
-kMin = 2*pi/retinalWidth; % min wave number
+cMax = 2/Tf;   % max wave velocity
+cMin = 0; % min wave velocity
+kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
+kMin = 2*pi/(retinalWidth);   % min wave number
 
-
-%%%%
-velocityN = 30;
+cN = 30;
 kN = 30;
 
-% Pre-allocate to exact size, use cell array for controls
-K = (velocityN+1) * (kN) + 1;  % Total number of controls
-controls = cell(K, 1);
-inputParameters = zeros(2, K);   % [c ; k]
+[controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
 
-counter = 0;
+[controlsRandom, inputParametersRandom] = generate1DRandomControls(dn, N, 100, seed);
 
-for iv = 0:velocityN
-    for ik = 1:kN
+% constant input
 
-        counter = counter + 1;
+counter = length(controls1DWave) + length(controlsRandom) + 1;
 
-        % Parameters
-        c = iv/velocityN * cMax;
-        kNumber = ik/kN * (kMax-kMin)+kMin;
-
-        control_temp = zeros(m, N);
-        for it = 1:N
-            t = (it-1) * Delta;
-            temp = zeros(sdn,1);
-
-            for ix = 1:sdn
-                x = ix * dx;
-                temp(ix) = 1 + cos( kNumber*x - c*kNumber*t );
-            end
-
-            control_temp(:, it) = temp;
-        end
-        
-        controls{counter} = control_temp;
-        inputParameters(:, counter) = [c; kNumber];
-    end
-end
+controls = cell(counter,1);
+inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
 
 
-counter = counter + 1;
+controls(1:end-1) = [controls1DWave;controlsRandom];
 
-control_temp = zeros(m, N);
-for it = 1:N
-    control_temp(:, it) = ones(sdn, 1);
-end
-controls{counter} = control_temp;
-inputParameters(:, counter) = [NaN; 0];   
+controls{counter} = ones(m, N); % Constant input at the end
 
+
+K = counter;
 
 tStepEnd = toc(tStepStart);
 
@@ -292,7 +274,7 @@ for i = 1:K
         end
     end
 
-    M{i} = Mi;
+    M{i} = Mi/(N*q); % Rescale of final Fisher infomatrix in order to account for influece of N and q
     
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
@@ -342,11 +324,11 @@ end
 Mold = Minit;
 Mnew = Mold;
 
+%%
 
-
-maxStepSearch = 400;
+maxStepSearch = 1000;
 i = 0;
-improvementThreshold = 0.00000005;
+improvementThreshold = 10^(-8);
 improvement = 1;
 
 while (i < maxStepSearch) && (improvement > improvementThreshold)
@@ -419,7 +401,7 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
 
-threshold = 0.005;
+threshold = 0.01;
 
 idx = find(abs(wnew) > threshold);
 
@@ -432,13 +414,13 @@ fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2s
 %%
 
 
-figure(2)
+figure(1)
 clf
 pause(1)
 
 % Define spatial domain
 
-dx = retinalWidth/(sdn-1);
+dx = retinalWidth/(dn-1);
 x = 0:dx:(dn-1)*dx;
 
 lidx = length(idx);
@@ -456,7 +438,7 @@ for l=1:N
         
         % Piecewise constant plot using stairs
         stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-        %plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
         
         ylim([0 2])
         xlim([0, (dn-1)*dx])
@@ -470,3 +452,45 @@ for l=1:N
     end
 end
 
+
+
+
+%%
+
+
+figure(2)
+clf
+pause(1)
+
+
+
+lidx = length(idx);
+info = cell(lidx,3);
+for k=1:length(idx)
+    info{k,1} = num2str(wnew(idx(k)));
+    info{k,2} = num2str(inputParameters(1,idx(k)));
+    info{k,3} = num2str(inputParameters(2,idx(k)));
+end
+
+for l=1:N
+    for k=1:length(idx)
+        subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
+
+        % Piecewise constant plot using stairs
+        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        imagesc(control_plot(:,l)',[0,2])
+        colormap(gray); 
+        axis image;
+        %ylim([0 2])
+        %xlim([0, (dn-1)*dx])
+        xlabel('Position (mm)')
+        %ylabel('Control')
+        title("weight = " + info{k,1} + ...
+            ", c = " + info{k,2} + ...
+            ", k = " + info{k,3})
+        drawnow
+        pause(0.001)
+    end
+end

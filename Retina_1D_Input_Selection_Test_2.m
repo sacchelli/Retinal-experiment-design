@@ -198,9 +198,10 @@ sdn = dn;
 dx  = retinalWidth/(sdn-1);
 
 cMax = 2/Tf;   % max wave velocity
-kMax = 2*pi*sdn/retinalWidth;   % max wave number:
+cMin = 0; % min wave velocity
+kMax = 2*pi*sdn/retinalWidth;   % max wave number
 kMin = 2*pi/retinalWidth;   % min wave number
-%kMin = 4*kMin
+
 
 %%%%
 velocityN = 30;
