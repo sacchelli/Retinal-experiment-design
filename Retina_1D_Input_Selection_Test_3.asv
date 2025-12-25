@@ -232,8 +232,8 @@ cMin = 0; % min wave velocity
 kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
-cN = 50;
-kN = 50;
+cN = 60;
+kN = 60;
 
 [controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
 
@@ -452,7 +452,7 @@ info = cell(lidx,3);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
     info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
-    info{k,3} = num2str(inputParameters(2,idx(k))/(kMax));
+    info{k,3} = num2str((inputParameters(2,idx(k))/(kMax));
 end
 
 for l=1:N
@@ -470,7 +470,7 @@ for l=1:N
         ylabel('Control')
         title("weight = " + info{k,1} + ...
             ", c = " + info{k,2} + ...
-            " c^*, k = " + info{k,3} + " k^*")
+            " c^*, k = " + info{k,3} + " kMax^")
         drawnow
         pause(0.001)
     end
@@ -493,7 +493,7 @@ info = cell(lidx,3);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
     info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
-    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
+    info{k,3} = num2str(inputParameters(2,idx(k)));
 end
 
 for l=1:N
@@ -513,7 +513,7 @@ for l=1:N
         %ylabel('Control')
         title("weight = " + info{k,1} + ...
             ", c = " + info{k,2} + ...
-            " c^*, k = " + info{k,3} + " k^*")
+            " c^*, k = " + info{k,3})
         drawnow
         pause(0.001)
     end

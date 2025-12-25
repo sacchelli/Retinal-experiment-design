@@ -1,5 +1,5 @@
 function M = gaussianPooling1DGraph(N,delta,sigma)
-    % laplacian1DGraph  Constructs the 1D Laplacian matrix (3-point stencil)
+    % 
     %   N: number of points per dimension
     %   
     

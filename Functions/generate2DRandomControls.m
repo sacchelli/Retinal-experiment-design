@@ -1,8 +1,8 @@
-function [controls, inputParameters] = generate1DRandomControls(dn, N, K, seed)
+function [controls, inputParameters] = generate2DRandomControls(sdn, N, K, seed)
 % GENERATE1DRANDOMCONTROLS Creates random control inputs for retinal experiments
 %
 % Inputs:
-%   dn              - Number of spatial discretization points
+%   sdn             - Number of spatial discretization points in 1D
 %   N               - Number of time steps
 %   K               - Number of random controls to generate
 %   seed            - Random seed for reproducibility
@@ -24,11 +24,11 @@ rng(seed);
 
 % Pre-allocate
 controls = cell(K, 1);
-inputParameters = zeros(2, K);
+inputParameters = zeros(3, K);
 
 for i = 1:K
     % Generate random control
-    control_temp = minValue + (maxValue - minValue) * rand(dn, N);
+    control_temp = minValue + (maxValue - minValue) * rand(sdn^2, N);
     
     % Apply spatial smoothing if requested
     if spatialSmoothing > 0
@@ -48,7 +48,7 @@ for i = 1:K
     control_temp = max(minValue, min(maxValue, control_temp));
     
     controls{i} = control_temp;
-    inputParameters(:, i) = [NaN; NaN];
+    inputParameters(:, i) = [NaN; NaN; NaN];
 end
 
 end

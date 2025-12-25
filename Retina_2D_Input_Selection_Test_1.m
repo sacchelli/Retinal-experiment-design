@@ -40,15 +40,17 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 50; % size of one layer
+sdn = 10; % size of the edge of one layer
+
+dn = sdn^2; % size of one layer : needs to be a square
 
 n = 3 * dn;
 
-m = dn;
+m = dn; % number of inputs
 
-p = 7;
+p = 7; % number of parameters
 
-q = dn;
+q = dn; % number of outputs
 
 N = 100; % Number of measurements
 
@@ -59,14 +61,14 @@ delta = retinalWidth/dn; % distance between cells
 %%%% Model
 
 
-% Gamma = adjacencyLaplacian1DGraph(dn);
-Gamma = absoluteLaplacian1DGraph(dn);
-% Gamma = laplacian1DGraph(dn);
-% Gamma = closestNeighbor1DGraph(dn);
+Gamma = adjacencyLaplacian2DGraph(sdn);
+% Gamma = absoluteLaplacian2DGraph(sdn);
+% Gamma = laplacian2DGraph(sdn);
+% Gamma = closestNeighbor2DGraph(sdn);
 
-GammaBG = gaussianPooling1DGraph(dn,delta,sigmaBG);
-GammaAG = gaussianPooling1DGraph(dn,delta,sigmaAG);
-%%
+GammaBG = gaussianPooling2DGraph(sdn,delta,sigmaBG);
+GammaAG = gaussianPooling2DGraph(sdn,delta,sigmaAG);
+
 
 id = speye(dn);
 zz = sparse(dn,dn);
@@ -227,31 +229,35 @@ fprintf(['\n','Input collection... '])
 tStepStart = tic;
 
 
-cMax = 2*retinalWidth/Tf;   % max wave velocity
+cMax = 2/Tf;   % max wave velocity
 cMin = 0; % min wave velocity
 kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
-cN = 50;
-kN = 50;
+cN = 10;
+kN = 10;
+thetaN = 10;
 
-[controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
 
-% [controlsRandom, inputParametersRandom] = generate1DRandomControls(dn, N, 100, seed);
+[controls2DWave, inputParameters2Dwave] = generate2DPlaneWaveControls(sdn, N, Delta, retinalWidth, thetaN, cMin, cMax, cN, kMin, kMax, kN);
+
+[controlsRandom, inputParametersRandom] = generate2DRandomControls(sdn, N, 100, seed);
 
 % constant input
 
-%counter = length(controls1DWave) + length(controlsRandom) + 1;
-counter = length(controls1DWave) + 1;
+%counter = length(controls2DWave) + 1;
+
+counter = length(controls2DWave) + length(controlsRandom) + 1;
 
 controls = cell(counter,1);
 
-%inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
-inputParameters = [inputParameters1Dwave,[NaN;0]];
+%inputParameters = [inputParameters2Dwave,[NaN;NaN;0]];
 
+inputParameters = [inputParameters2Dwave,inputParametersRandom,[NaN;NaN;0]];
 
-%controls(1:end-1) = [controls1DWave;controlsRandom];
-controls(1:end-1) = [controls1DWave];
+% controls(1:end-1) = controls2DWave;
+
+controls(1:end-1) = [controls2DWave;controlsRandom];
 
 controls{counter} = ones(m, N); % Constant input at the end
 
@@ -437,83 +443,43 @@ fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2s
 
 %%
 
-
 figure(1)
 clf
 pause(1)
 
 % Define spatial domain
-
-dx = retinalWidth/(dn-1);
-x = 0:dx:(dn-1)*dx;
+dx = retinalWidth/(sdn-1);
+x = 0:dx:(sdn-1)*dx;
 
 lidx = length(idx);
-info = cell(lidx,3);
+info = cell(lidx,4);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
-    info{k,3} = num2str(inputParameters(2,idx(k))/(kMax));
+    info{k,2} = num2str(inputParameters(1,idx(k))/pi);
+    info{k,3} = num2str(inputParameters(2,idx(k)));
+    info{k,4} = num2str(inputParameters(3,idx(k)));
 end
+
+% Calculate subplot layout: 2 rows, variable columns
+nCols = ceil(lidx/2);
+nRows = min(2, lidx);  % Use 2 rows unless there's only 1 element
 
 for l=1:N
     for k=1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
+        subplot(nRows, nCols, k)
+        control_plot1D = controls{idx(k)}(:,l);
+        control_plot = reshape(control_plot1D, sdn, sdn);
         
-        % Piecewise constant plot using stairs
-        stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
-        
-        ylim([0 2])
-        xlim([0, (dn-1)*dx])
-        xlabel('Position (mm)')
-        ylabel('Control')
-        title("weight = " + info{k,1} + ...
-            ", c = " + info{k,2} + ...
-            " c^*, k = " + info{k,3} + " k^*")
-        drawnow
-        pause(0.001)
-    end
-end
-
-
-
-
-%%
-
-
-figure(2)
-clf
-pause(1)
-
-
-
-lidx = length(idx);
-info = cell(lidx,3);
-for k=1:length(idx)
-    info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
-    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
-end
-
-for l=1:N
-    for k=1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-
-        % Piecewise constant plot using stairs
-        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
-        imagesc(control_plot(:,l)',[0,2])
-        colormap(gray); 
+        imagesc(control_plot, [0,2])
+        colormap(gray);
         axis image;
-        %ylim([0 2])
-        %xlim([0, (dn-1)*dx])
-        xlabel('Position (mm)')
-        %ylabel('Control')
+        
+        xlabel('Position')
+        ylabel('Position')
         title("weight = " + info{k,1} + ...
-            ", c = " + info{k,2} + ...
-            " c^*, k = " + info{k,3} + " k^*")
+            ", \theta = " + info{k,2} + ...
+            "\pi, c = " + info{k,3} + ...
+            ", k = " + info{k,4})
         drawnow
         pause(0.001)
     end
