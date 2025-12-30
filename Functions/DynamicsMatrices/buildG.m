@@ -1,4 +1,4 @@
-function G = buildGASparse(A, B, Delta, prec)
+function G = buildG(A, B, Delta, prec)
 
 dt = Delta/prec;
 

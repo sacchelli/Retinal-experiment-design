@@ -40,7 +40,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-sdn = 10; % size of the edge of one layer
+sdn = 5; % size of the edge of one layer
 
 dn = sdn^2; % size of one layer : needs to be a square
 
@@ -136,8 +136,8 @@ fprintf(['\n','Dynamics and variance pre-computation... '])
 tStepStart = tic;
 
 F = buildF(A, Delta);
-G = buildGASparse(A, B, Delta, prec);
-Sigma = buildSigmaASparse(A, sigma, Delta, prec);
+G = buildG(A, B, Delta, prec);
+Sigma = buildSigma(A, sigma, Delta, prec);
 SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
 SigmaBoldinv = inv(SigmaBold);
 
@@ -172,9 +172,9 @@ for i = 1:p
 
     Fb = buildF(Ab, Delta);
     
-    Gb = buildGASparse(Ab, Bb, Delta, prec);
+    Gb = buildG(Ab, Bb, Delta, prec);
     
-    Sigmab = buildSigmaASparse(Ab, sigmab, Delta, prec);
+    Sigmab = buildSigma(Ab, sigmab, Delta, prec);
     
     Hb{i} = buildH(Cb, Fb, Gb, N);
     dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);

@@ -1,15 +1,53 @@
-addpath './Functions'
+% The following script can be used to repoduce the numericam experiments
+% present in the paper "...." by ....
+
+% In the present script, we only select the optimal experiment on the basis
+% of a nominal value, the maximum likelihood estimation in itself is not
+% achieved here.
+
+% This particular script focuses on the 1-dimensional model of the retina,
+% which requires slightly different adjustments in the code.
+
+
+
+addpath(genpath('./Functions'))
 clc
+
+
+
 
 timeTakenStart = tic;
 
-rng(1)
+% Pick the rng seed if necessary.
+
+seed = 1;
+
+rng(seed);
+
+% If cutoff is 'true', we do not use the full matrices for correlations, 
+% using the fact that there is a forgetting effect in the
+% dynamics.
+
+cutoff = true;
+
+% If cutoff is 'true', then depth determines the forgetting time
+% beyond which we assume we can discard the correlations. Experimenting,
+% it seems  depth * q. 20 is a good choice under current data. It is
+% possible to experiment with the function 'plotDiagonalMax' to see the
+% decrease in amplitude of the matrices along the diagonal. Naturally, this
+% effect is highly dependent on Delta.
+
+depth = 20;
+
+
 
 %%%% Data // following the reference.
 
-delta = 0.00389; % cm
-sigmaBG = 0.15; % cm
-sigmaAG = 0.15; % cm
+
+retinalWidth = 2; % mm 
+
+sigmaBG = 0.15; % mm
+sigmaAG = 0.15; % mm
 
 tauB = 57.5139; % ms
 tauA = 86.6298; % ms
@@ -22,7 +60,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 50; % size of one layer
+dn = 30; % size of one layer
 
 n = 3 * dn;
 
@@ -32,82 +70,132 @@ p = 7;
 
 q = dn;
 
-N = 100; % Time window
+N = 100; % Number of measurements
 
 
-%%%% Model
+delta = retinalWidth/dn; % distance between cells
 
-Gamma = laplacian1DGraph(dn);
+
+%%%% Model topology
+
+% Below is the choice of topology for the B <-> A connection (matrix Gamma)
+% All choices below are variations on the 1D Laplacian. Other choices
+% could be made.
+
+% 'adjacencyLaplacian' connection graph:
+%           Bi
+%         / | \
+%        1  1  1
+%       /   |   \
+%   A(i-1)  Ai   A(i+1)
+
+% 'absoluteLaplacian' connection graph:
+%           Bi
+%         / | \
+%        1  2  1
+%       /   |   \
+%   A(i-1)  Ai   A(i+1)
+
+% 'Laplacian' connection graph:
+%           Bi
+%         / | \
+%        1  -2 1
+%       /   |   \
+%   A(i-1)  Ai   A(i+1)
+
+% 'closestNeighbor' connection graph:
+%           Bi
+%         / | \
+%        1  0  1
+%       /   |   \
+%   A(i-1)  Ai   A(i+1)
+
+
+% Gamma = laplacian1DGraph(dn);
+Gamma = absoluteLaplacian1DGraph(dn);
+% Gamma = laplacian1DGraph(dn);
+% Gamma = closestNeighbor1DGraph(dn);
+
+
+% B -> G and A -> G connections are achieved by Gaussian pooling, (Gaussian
+% kernel on the distance between nodes).
+
 GammaBG = gaussianPooling1DGraph(dn,delta,sigmaBG);
 GammaAG = gaussianPooling1DGraph(dn,delta,sigmaAG);
 
+%%% Construction of the matrix A.
 
 id = speye(dn);
 zz = sparse(dn,dn);
 
-Acol = zeros(n,n,p+1);
 
-Acol(:,:,1) = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
-Acol(:,:,2) = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
-Acol(:,:,3) = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
+Acell = cell(p+1, 1);
 
-Acol(:,:,4) = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
-Acol(:,:,5) = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
+Acell{1} = [-id , zz, zz ; zz, zz, zz ; zz, zz, zz];
+Acell{2} = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
+Acell{3} = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
 
-Acol(:,:,6) = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
-Acol(:,:,7) = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
+Acell{4} = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
+Acell{5} = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
 
-%Acol(:,:,8) = [zz , zz, zz ; zz, zz, zz ; zz, zz, zz];
+Acell{6} = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
+Acell{7} = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
 
-Acol(:,:,8) = 1/tauB*Acol(:,:,1) + 1/tauA*Acol(:,:,2) + 1/tauG*Acol(:,:,3) ...
-    + wm*Acol(:,:,4) + wp*Acol(:,:,5) + wBG*Acol(:,:,6) + wAG*Acol(:,:,7);
+Acell{8} = 1/tauB*Acell{1} + 1/tauA*Acell{2} + 1/tauG*Acell{3} ...
+    + wm*Acell{4} + wp*Acell{5} + wBG*Acell{6} + wAG*Acell{7};
+
+% Acell{8} contains the exoerimental value, the others serve as variations
+% around that value.
 
 
+Delta = max([tauA,tauB,tauG])/5; % Time between two measurements
 
-
-
-%Tf=10*pi; % Time of the experiment
-
-Tf=1; % Time of the experiment
+Tf = N * Delta; % Total duration of the experiment
 
 prec = 500;   % must be even
 
-Delta = Tf/N;
-
-%%%% Determination of 
-
-% sigma = 0.5*eye(n);
-% Sigmap = 0.5;
-
-sigma = 0.1*eye(n);
-Sigmap = 0.1*eye(q);
 
 
-% sigma = 0.01*eye(n);
-% Sigmap = 10^(-4);
+%%% Determination of size of the noise
+
+sigma = 0.1 * eye(n);
+Sigmap = 0.1 * eye(q);
+
+%%% Input and output matrices
 
 B = sparse([eye(dn,m);zeros(2*dn,m)]);
 
 C = sparse([zeros(q,2*dn),eye(q,dn)]);
 
 
+%%% Contraction of A
 
-%%% Contraction of A.
+thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG]; % Compilation of the experimental data
 
-thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG];
+% We can choose the nominal vector theta, either as thetaData or as a
+% variation of it. Again, we made the choice for this code that  the 
+% values input in thetaNominal are variations around thetaData (already 
+% contained in Acell{8}).
 
-thetaTrue = (rand(1,p)-1/2)/2.*thetaData;
-thetaTrue = 0.*thetaData;
+thetaNominal = 0.*thetaData;
+%thetaNominal = (rand(1,p)-1/2)/2.*thetaData;
 
 
-A = sparse(Acol(:,:,p+1) + sum(Acol(:,:,1:p) .* reshape(thetaTrue, 1, 1, []), 3));
+A = Acell{p+1};
+for i = 1:p
+    A = A + thetaNominal(i) * Acell{i};
+end
 
-maxReEigA=max(real(unique(eigs(A))));
+maxReEigA = max(real(eigs(A)));
+
+
 
 fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
 
 %%%% Construction of elements
+
+% This construction follows the paper precisely.
 
 
 fprintf(['\n','Dynamics and variance pre-computation... '])
@@ -115,10 +203,18 @@ fprintf(['\n','Dynamics and variance pre-computation... '])
 tStepStart = tic;
 
 F = buildF(A, Delta);
-G = buildGASparse(A, B, Delta,prec);
-Sigma = buildSigmaASparse(A, sigma, Delta, prec);
-SigmaBold = buildSigmaBold(C,C/2,F,Sigma,Sigmap,N);
+G = buildG(A, B, Delta, prec);
+Sigma = buildSigma(A, sigma, Delta, prec);
+SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
 SigmaBoldinv = inv(SigmaBold);
+
+
+% Use this to accelerate the computations by killing off diagonal terms:
+
+if cutoff
+    SigmaBoldinv = sparse(bandDiagonalFilter(SigmaBoldinv,depth*q)); 
+end
+
 
 tStepEnd = toc(tStepStart);
 
@@ -126,30 +222,35 @@ fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
-Hb = zeros(N*q,N*m,p);
-dSb = zeros(N*q,N*q,p);
+%
+Hb = cell(p, 1);
+dSb = cell(p, 1);
 
 for i = 1:p
     fprintf(['Parameter ',num2str(i),'/',num2str(p),' '])
     tStepStart = tic;
     
-    Ab = [A, zeros(n,n); Acol(:,:,i), A];
+    Ab = [A, zeros(n,n); Acell{i}, A];
     
     Bb = [B; zeros(n,m)];
     Cb = [zeros(q,n), C];
-    Cbp = [C, zeros(q,n),];
+    Cbp = [C, zeros(q,n)];
     sigmab = [sigma, zeros(n,n); zeros(n,n), zeros(n,n)];
 
     Fb = buildF(Ab, Delta);
     
-    Gb = buildGASparse(Ab, Bb, Delta, prec);
+    Gb = buildG(Ab, Bb, Delta, prec);
     
-    Sigmab = buildSigmaASparse(Ab, sigmab, Delta, prec);
+    Sigmab = buildSigma(Ab, sigmab, Delta, prec);
     
+    Hb{i} = buildH(Cb, Fb, Gb, N);
+    dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
+    if cutoff
+        Hb{i} = sparse(bandDiagonalFilter(Hb{i},depth*q));
+        dSb{i} = sparse(bandDiagonalFilter(dSb{i},depth*q));
+    end
 
-    Hb(:,:,i) = buildH(Cb, Fb, Gb, N);
-    dSb(:,:,i) = buildSigmaBold(Cb,Cbp,Fb,Sigmab,zeros(q,q),N);
-    
+
     tStepEnd = toc(tStepStart);
 
     fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
@@ -157,25 +258,25 @@ end
 
 timeTakenCheck = toc(timeTakenStart);
 
-fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s)\n'])
+fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
 fprintf(['\n','Q matrix computation... \n'])
 
 
 Q = zeros(p,p);
-halfQ = zeros(N*q,N*q,p);
+halfQ = cell(p, 1);
 
 for i = 1:p
     fprintf(['Parameter ',num2str(i),'/',num2str(p)])
     tStepStart = tic;
-    halfQ(:,:,i) = SigmaBoldinv*dSb(:,:,i);
+    halfQ{i} = full(SigmaBoldinv) * full(dSb{i});
     tStepEnd = toc(tStepStart);
     fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
 end
 
 for i = 1:p
     for j = 1:i
-        Q(i,j) = 0.5*trAB(halfQ(:,:,i),halfQ(:,:,j));
+        Q(i,j) = 0.5*trAB(halfQ{i}, halfQ{j});
         Q(j,i) = Q(i,j);
     end
 end
@@ -185,9 +286,8 @@ timeTakenCheck = toc(timeTakenStart);
 
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
-
+%%
 %%%% Collection of controls
-
 
 %%% Test family 
 
@@ -195,63 +295,43 @@ fprintf(['\n','Input collection... '])
 
 tStepStart = tic;
 
-sdn = dn;
-dx  = 1/sdn;
 
-Kbound  = 100000;
-counter = 0;
+cMax = 2*retinalWidth/Tf;   % max wave velocity
+cMin = 0; % min wave velocity
+kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
+kMin = 2*pi/(retinalWidth);   % min wave number
 
-controls = zeros(m, N, Kbound);
+cN = 20;
+kN = 20;
 
-cMax = 10;
-kMax = 10*2*pi;   % bound on the wave number
+[controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
 
-velocityN = 30;
-kN = 30;
+% [controlsRandom, inputParametersRandom] = generate1DRandomControls(dn, N, 100, seed);
 
-inputParameters = zeros(2, Kbound);   % [c ; k]
+% constant input
 
-for iv = 1:velocityN
-    for ik = 1:kN
+%counter = length(controls1DWave) + length(controlsRandom) + 1;
+counter = length(controls1DWave) + 1;
 
-        counter = counter + 1;
+controls = cell(counter,1);
 
-        % Parameters
-        c = iv/velocityN * cMax;
-        k = ik/kN * kMax;
-
-        for it = 1:N
-            t = (it-1) * Delta;
-            temp = zeros(sdn,1);
-
-            for ix = 1:sdn
-                x = ix * dx;
-                temp(ix) = 1 + cos( k*x - c*k*t );
-            end
-
-            controls(:, it, counter) = temp;
-        end
-
-        inputParameters(:, counter) = [c; k];
-    end
-end
+%inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
+inputParameters = [inputParameters1Dwave,[NaN;0]];
 
 
-counter = counter + 1;
+%controls(1:end-1) = [controls1DWave;controlsRandom];
+controls(1:end-1) = [controls1DWave];
 
-for it = 1:N
-    controls(:, it, counter) = ones(sdn, 1);
-end
-
-inputParameters(:, counter) = [NaN; 0];   
+controls{counter} = ones(m, N); % Constant input at the end
 
 
-controls = controls(:,:,1:counter);
-inputParameters  = inputParameters(:,1:counter);
+K = counter;
 
 tStepEnd = toc(tStepStart);
 
 fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
+
+fprintf(['There are ', num2str(K),' inputs in this experiment'])
 
 %%
 
@@ -259,40 +339,36 @@ fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
 
 fprintf(['\n','Fisher Matrices computations... \n'])
 
-K = size(controls,3);
-
-M = zeros(p,p,K);
+% Use cell array for M
+M = cell(K, 1);
 
 tStepStart = tic;
 
 for i = 1:K
-    u = controls(:,:,i);
+    u = controls{i};
     u = u(:);
     Mi = zeros(p,p);
-    L2u = max(1/Tf*u'*u/N,0.000001);
+    L2u = max(1/Tf*(u'*u)/N, 0.000001);
     u = u/sqrt(L2u);
     
-    Hju = zeros(N*q,1,p);
-    SBiHju = zeros(N*q,1,p);
+    Hju = zeros(N*q, p);
+    SBiHju = zeros(N*q, p);
 
     for j = 1:p
-        aux = Hb(:,:,j);
-        Hju(:,:,j) = aux*u;
-        %Hju(:,:,j) = Hb(:,:,j)*u;
-        SBiHju(:,:,j) = SigmaBoldinv*Hju(:,:,j);
+        Hju(:,j) = Hb{j} * u;
+        SBiHju(:,j) = SigmaBoldinv * Hju(:,j);
     end
 
     for j = 1:p
         for k = 1:j
-            uLu_jk = (Hju(:,:,k)'*SBiHju(:,:,j)+Hju(:,:,j)'*SBiHju(:,:,k))/2;
-            Mi(j,k) = uLu_jk+Q(j,k);
-            Mi(k,j) = uLu_jk+Q(j,k);
+            uLu_jk = (Hju(:,k)' * SBiHju(:,j) + Hju(:,j)' * SBiHju(:,k))/2;
+            Mi(j,k) = uLu_jk + Q(j,k);
+            Mi(k,j) = uLu_jk + Q(j,k);
         end
     end
 
-    M(:,:,i) = Mi;
+    M{i} = Mi/(N*q); % Rescale of final Fisher infomatrix in order to account for influece of N and q
     
-    %fprintf(['control ',num2str(i),'/',num2str(K),'\n'])
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
         tStepEnd = toc(tStepStart);
@@ -304,7 +380,7 @@ end
 
 tStepEnd = toc(tStepStart);
 
-%%
+%% Input selection step
 
 timeTakenCheck = toc(timeTakenStart);
 
@@ -318,18 +394,13 @@ maxScore = -Inf;
 maxScoreIndex = 0;
 
 for k = 1:K
-    if maxScore < logdet(M(:,:,k))
-        maxScore = logdet(M(:,:,k));
+    if maxScore < logdet(M{k})
+        maxScore = logdet(M{k});
         maxScoreIndex = k;
     end
-    %maxscorevertex = max(maxscorevertex,log(det(M(:,:,k))));
-
 end
 
-Mtop = M(:,:,maxScoreIndex);
-
-%w = zeros(K,1);
-%w(maxScoreIndex) = 1; % weight initialization
+Mtop = M{maxScoreIndex};
 
 
 maxBisec = 20;
@@ -337,19 +408,23 @@ maxBisec = 20;
 wold = ones(K,1)/K;
 wnew = wold;
 
-Minit = sum(M .* reshape(wnew, 1, 1, K), 3);
+% Compute weighted sum
+Minit = zeros(p,p);
+for k = 1:K
+    Minit = Minit + wnew(k) * M{k};
+end
 
 Mold = Minit;
 Mnew = Mold;
 
 %%
 
-maxStepSearch = 200;
+maxStepSearch = 1000;
 i = 0;
-improvementThreshold = 0.000001;
+improvementThreshold = 10^(-8);
 improvement = 1;
 
-while (i < maxStepSearch)&& (improvement > improvementThreshold)
+while (i < maxStepSearch) && (improvement > improvementThreshold)
     
     i = i+1;
 
@@ -361,8 +436,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     maxDer = -Inf;
     maxDerIndex = 0;
     for k = 1:K                     
-        %der = trace(inv(Mold)*M(:,:,k));
-        der = trAB(inv(Mold),M(:,:,k));
+        der = trAB(inv(Mold), M{k});
         if maxDer < der
             maxDer = der;
             maxDerIndex = k;
@@ -373,9 +447,9 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     
     % Step 2: search for best step
 
-    Mks = M(:,:,ks);
+    Mks = M{ks};
     wks = zeros(K, 1);
-    wks(ks)=1;
+    wks(ks) = 1;
     
     %%%% Adaptive step 
     
@@ -390,7 +464,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
     
     for j = 1:maxBisec
         c = (a+b)/2;
-        if trAB(inv((1-c)*Mold+c* Mks),(Mks-Mold))>=0
+        if trAB(inv((1-c)*Mold + c*Mks), (Mks-Mold)) >= 0
             a = c;
         else 
             b = c;
@@ -405,7 +479,7 @@ while (i < maxStepSearch)&& (improvement > improvementThreshold)
 
     improvement = (logdet(Mnew)-logdet(Mold))/abs(logdet(Mold));
     
-    if mod(i,10)== 0 
+    if mod(i,10) == 0 
         fprintf(['Step of search : ', num2str(i), ', score improvement : ', num2str(improvement), '\n'])
     end
 
@@ -420,15 +494,9 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
 
-
-
-
-threshold = 0.001;
+threshold = 0.01;
 
 idx = find(abs(wnew) > threshold);
-%fprintf("weights = " + num2str(wnew(idx(1)))+", " + num2str(wnew(idx(2))))
-%display(sum(wnew(idx)))
-%display(inputParameters(:,idx))
 
 
 timeTakenCheck = toc(timeTakenStart);
@@ -439,26 +507,82 @@ fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2s
 %%
 
 
-
-pause(1)
 figure(1)
 clf
+pause(1)
 
+% Define spatial domain
 
+dx = retinalWidth/(dn-1);
+x = 0:dx:(dn-1)*dx;
+
+lidx = length(idx);
+info = cell(lidx,3);
+for k=1:length(idx)
+    info{k,1} = num2str(wnew(idx(k)));
+    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
+    info{k,3} = num2str(inputParameters(2,idx(k))/(kMax));
+end
 
 for l=1:N
     for k=1:length(idx)
         subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
         
-        plot(controls(:,l,idx(k)))
-        ylim([0 2]) 
-        xlim([1,dn])
-        title("weight = " + num2str(wnew(idx(k))) + ...
-            ", c = " + num2str(inputParameters(1,idx(k)))+ ...
-            ", k = " + num2str(inputParameters(2,idx(k))))
+        % Piecewise constant plot using stairs
+        stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+        
+        ylim([0 2])
+        xlim([0, (dn-1)*dx])
+        xlabel('Position (mm)')
+        ylabel('Control')
+        title("weight = " + info{k,1} + ...
+            ", c = " + info{k,2} + ...
+            " \times c^*, k = " + info{k,3} + " \times k^*")
         drawnow
-        
         pause(0.001)
     end
 end
 
+
+
+
+%%
+
+
+figure(2)
+clf
+pause(1)
+
+
+
+lidx = length(idx);
+info = cell(lidx,3);
+for k=1:length(idx)
+    info{k,1} = num2str(wnew(idx(k)));
+    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
+    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
+end
+
+for l=1:N
+    for k=1:length(idx)
+        subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
+
+        % Piecewise constant plot using stairs
+        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
+        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        imagesc(control_plot(:,l)',[0,2])
+        colormap(gray); 
+        axis image;
+        %ylim([0 2])
+        %xlim([0, (dn-1)*dx])
+        xlabel('Position (pxl)')
+        %ylabel('Control')
+        title("weight = " + info{k,1} + ...
+            ", c = " + info{k,2} + ...
+            " \times c^*, k = " + info{k,3} + " \times k^*")
+        drawnow
+        pause(0.001)
+    end
+end

@@ -1,4 +1,4 @@
-function Sigma = buildSigmaDynamic(A, sigma, Delta, prec)
+function Sigma = buildSigma(A, sigma, Delta, prec)
 
 dt = Delta/prec;
 
