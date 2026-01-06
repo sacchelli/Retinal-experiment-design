@@ -1,4 +1,4 @@
-% The following script can be used to repoduce the numericam experiments
+% The following script can be used to repoduce the numerical experiments
 % present in the paper "...." by ....
 
 % In the present script, we only select the optimal experiment on the basis
@@ -12,17 +12,24 @@
 
 addpath(genpath('./Functions'))
 clc
-
-
-
-
 timeTakenStart = tic;
+
+
+
+%% FRONT MATTER %%
+
+
+dn = 100; % size of one layer
+
 
 % Pick the rng seed if necessary.
 
 seed = 1;
 
 rng(seed);
+
+
+%%% Should we cutoff correlations?
 
 % If cutoff is 'true', we do not use the full matrices for correlations, 
 % using the fact that there is a forgetting effect in the
@@ -39,7 +46,17 @@ cutoff = true;
 
 depth = 20;
 
+%%% Should we add random controls in addition to waves?
 
+addRandomInputs = false;
+
+% How many?
+
+nbrRandomInputs = 100; % must be >0.
+
+
+
+%% DYNAMICS CONSTRUCTION
 
 %%%% Data // following the reference.
 
@@ -60,20 +77,36 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-dn = 30; % size of one layer
+n = 3 * dn; % size of the system
 
-n = 3 * dn;
+m = dn; % number of inputs
 
-m = dn;
+p = 7; % number of parameters
 
-p = 7;
-
-q = dn;
+q = dn; % number of outputs
 
 N = 100; % Number of measurements
 
 
 delta = retinalWidth/dn; % distance between cells
+
+
+%%% Determination of size of the noise
+
+% Notice that here, if we keep id as the noise matrix then only the
+% relative sizes of the noises matter in the end.
+% D is the dynamical noise and Sigmap is the output/measurement noise.
+
+
+% D = 0.1 * eye(n); 
+% Sigmap = 0.01 * eye(q); 
+
+% D = 0.1 * eye(n); 
+% Sigmap = 0.1 * eye(q); 
+
+D = 0.1 * eye(n); 
+Sigmap = 0.5 * eye(q); 
+
 
 
 %%%% Model topology
@@ -144,7 +177,7 @@ Acell{7} = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
 Acell{8} = 1/tauB*Acell{1} + 1/tauA*Acell{2} + 1/tauG*Acell{3} ...
     + wm*Acell{4} + wp*Acell{5} + wBG*Acell{6} + wAG*Acell{7};
 
-% Acell{8} contains the exoerimental value, the others serve as variations
+% Acell{8} contains the experimental value, the others serve as variations
 % around that value.
 
 
@@ -155,11 +188,6 @@ Tf = N * Delta; % Total duration of the experiment
 prec = 500;   % must be even
 
 
-
-%%% Determination of size of the noise
-
-sigma = 0.1 * eye(n);
-Sigmap = 0.1 * eye(q);
 
 %%% Input and output matrices
 
@@ -190,10 +218,12 @@ maxReEigA = max(real(eigs(A)));
 
 
 
-fprintf(['Data created, Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
+fprintf(['Data created, size of one layer: ', num2str(dn),', Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
 
+ 
+%% PRECOMPUTATION STEP %%
 
-%%%% Construction of elements
+%%% Construction of sensitivities
 
 % This construction follows the paper precisely.
 
@@ -204,7 +234,7 @@ tStepStart = tic;
 
 F = buildF(A, Delta);
 G = buildG(A, B, Delta, prec);
-Sigma = buildSigma(A, sigma, Delta, prec);
+Sigma = buildSigma(A, D, Delta, prec);
 SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
 SigmaBoldinv = inv(SigmaBold);
 
@@ -212,7 +242,7 @@ SigmaBoldinv = inv(SigmaBold);
 % Use this to accelerate the computations by killing off diagonal terms:
 
 if cutoff
-    SigmaBoldinv = sparse(bandDiagonalFilter(SigmaBoldinv,depth*q)); 
+    SigmaBoldinv = bandBlockDiagonalFilter(SigmaBoldinv,depth,q,q); 
 end
 
 
@@ -222,7 +252,6 @@ fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
-%
 Hb = cell(p, 1);
 dSb = cell(p, 1);
 
@@ -235,19 +264,22 @@ for i = 1:p
     Bb = [B; zeros(n,m)];
     Cb = [zeros(q,n), C];
     Cbp = [C, zeros(q,n)];
-    sigmab = [sigma, zeros(n,n); zeros(n,n), zeros(n,n)];
+    Db = [D, zeros(n,n); zeros(n,n), zeros(n,n)];
 
     Fb = buildF(Ab, Delta);
     
     Gb = buildG(Ab, Bb, Delta, prec);
     
-    Sigmab = buildSigma(Ab, sigmab, Delta, prec);
+    Sigmab = buildSigma(Ab, Db, Delta, prec);
     
     Hb{i} = buildH(Cb, Fb, Gb, N);
     dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
     if cutoff
-        Hb{i} = sparse(bandDiagonalFilter(Hb{i},depth*q));
-        dSb{i} = sparse(bandDiagonalFilter(dSb{i},depth*q));
+        % Hb{i} = sparse(bandDiagonalFilter(Hb{i},depth*q));
+        % dSb{i} = sparse(bandDiagonalFilter(dSb{i},depth*q));
+        
+        Hb{i} = bandBlockDiagonalFilter(Hb{i},depth,q,m);
+        dSb{i} = bandBlockDiagonalFilter(dSb{i},depth,q,q);
     end
 
 
@@ -286,10 +318,9 @@ timeTakenCheck = toc(timeTakenStart);
 
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
-%%
-%%%% Collection of controls
+%% COLLECTION OF INPUTS %%
 
-%%% Test family 
+%%% Test family: waves 
 
 fprintf(['\n','Input collection... '])
 
@@ -297,30 +328,38 @@ tStepStart = tic;
 
 
 cMax = 2*retinalWidth/Tf;   % max wave velocity
-cMin = 0; % min wave velocity
+cMin = -2*retinalWidth/Tf; % min wave velocity
+% cMin = 0; % min wave velocity
+
 kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
-cN = 20;
-kN = 20;
+cN = 31;
+kN = 30;
 
 [controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
 
-% [controlsRandom, inputParametersRandom] = generate1DRandomControls(dn, N, 100, seed);
-
-% constant input
-
-%counter = length(controls1DWave) + length(controlsRandom) + 1;
-counter = length(controls1DWave) + 1;
-
-controls = cell(counter,1);
-
-%inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
-inputParameters = [inputParameters1Dwave,[NaN;0]];
+if addRandomInputs % produce random inputs if asked
+    [controlsRandom, inputParametersRandom] = generate1DRandomControls(dn, N, nbrRandomInputs, seed);
+end
 
 
-%controls(1:end-1) = [controls1DWave;controlsRandom];
-controls(1:end-1) = [controls1DWave];
+
+% Concatenate inputs and constant input.
+
+if addRandomInputs 
+    counter = length(controls1DWave) + length(controlsRandom) + 1;
+    inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
+    controls = cell(counter,1);
+    controls(1:end-1) = [controls1DWave;controlsRandom];
+else
+    counter = length(controls1DWave) + 1;
+    inputParameters = [inputParameters1Dwave,[NaN;0]];
+    controls = cell(counter,1);
+    controls(1:end-1) = controls1DWave;
+end
+
+% 
 
 controls{counter} = ones(m, N); % Constant input at the end
 
@@ -333,9 +372,13 @@ fprintf(['done (',num2str(tStepEnd,3) ,'s) \n'])
 
 fprintf(['There are ', num2str(K),' inputs in this experiment'])
 
-%%
 
-%%%% Collection of Fisher matrices
+
+%% FISHER MATRICES CONSTRUCTION %%
+
+% Please notice that the Fisher matrices are rescaled 
+
+%%% Collection of Fisher matrices
 
 fprintf(['\n','Fisher Matrices computations... \n'])
 
@@ -367,7 +410,7 @@ for i = 1:K
         end
     end
 
-    M{i} = Mi/(N*q); % Rescale of final Fisher infomatrix in order to account for influece of N and q
+    M{i} = Mi/(N*q); % Rescale of final Fisher information matrix in order to account for influece of N and q
     
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
@@ -380,7 +423,7 @@ end
 
 tStepEnd = toc(tStepStart);
 
-%% Input selection step
+%% OPTIMAL INPUT SELECTION %%
 
 timeTakenCheck = toc(timeTakenStart);
 
@@ -388,7 +431,7 @@ fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'
 
 fprintf([' \n'])
 
-%%%% Finding the best vertex for initialization
+%%% Finding the best vertex before initialization
 
 maxScore = -Inf;
 maxScoreIndex = 0;
@@ -403,7 +446,9 @@ end
 Mtop = M{maxScoreIndex};
 
 
-maxBisec = 20;
+maxBisec = 20;  % How far should we push bisection.
+
+%%% Initialize at the average input
 
 wold = ones(K,1)/K;
 wnew = wold;
@@ -417,9 +462,9 @@ end
 Mold = Minit;
 Mnew = Mold;
 
-%%
+%%% Exploration loop
 
-maxStepSearch = 1000;
+maxStepSearch = 1000; % Max number of loops
 i = 0;
 improvementThreshold = 10^(-8);
 improvement = 1;
@@ -504,7 +549,7 @@ timeTakenCheck = toc(timeTakenStart);
 fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2str(floor(timeTakenCheck/60)),' min ',num2str(mod(timeTakenCheck,60),2),'s)\n'])
 
 
-%%
+%% Animate the input
 
 
 figure(1)
@@ -539,15 +584,16 @@ for l=1:N
         title("weight = " + info{k,1} + ...
             ", c = " + info{k,2} + ...
             " \times c^*, k = " + info{k,3} + " \times k^*")
-        drawnow
-        pause(0.001)
+        
     end
+    drawnow
+    pause(0.001)
 end
 
 
 
 
-%%
+%% Animate based on luminosity
 
 
 figure(2)
@@ -570,19 +616,74 @@ for l=1:N
         control_plot = controls{idx(k)};
 
         % Piecewise constant plot using stairs
-        %stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-        % plot(x, control_plot(:,l), 'LineWidth', 1.5)
+        %
         imagesc(control_plot(:,l)',[0,2])
         colormap(gray); 
         axis image;
-        %ylim([0 2])
-        %xlim([0, (dn-1)*dx])
+        
         xlabel('Position (pxl)')
-        %ylabel('Control')
+        
         title("weight = " + info{k,1} + ...
             ", c = " + info{k,2} + ...
             " \times c^*, k = " + info{k,3} + " \times k^*")
-        drawnow
-        pause(0.001)
+        
+    end
+    drawnow
+    pause(0.001)
+
+end
+
+%% Create animated gif 
+
+% --- GIF parameters ---
+gifname   = 'Optimal_inputs_1D.gif';
+delayTime = 0.05;   % seconds between frames
+firstFrame = true;
+
+if exist(gifname, 'file')
+    delete(gifname)
+end
+
+
+% --- Figure setup ---
+
+figure(3); 
+clf(3,'reset') 
+set(gcf,'Position',[100 100 600 (length(idx)*100)])
+
+for l = 1:N
+
+    clf(3)   % clear figure at each l
+    
+    for k = 1:length(idx)
+        subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
+
+        imagesc(control_plot(:,l)', [0,2])
+        colormap(gray)
+        axis image
+
+        xlabel('Position (pxl)')
+        title("weight = " + info{k,1} + ...
+              ", c = " + info{k,2} + ...
+              " \times c^*, k = " + info{k,3} + " \times k^*")
+    end
+
+    drawnow
+
+    % --- Capture one frame per l ---
+    frame = getframe(gcf);
+    im = frame2im(frame);
+    [A,map] = rgb2ind(im,256);
+
+    if firstFrame
+        imwrite(A, map, gifname, 'gif', ...
+                'LoopCount', Inf, ...
+                'DelayTime', delayTime);
+        firstFrame = false;
+    else
+        imwrite(A, map, gifname, 'gif', ...
+                'WriteMode', 'append', ...
+                'DelayTime', delayTime);
     end
 end

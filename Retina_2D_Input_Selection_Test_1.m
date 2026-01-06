@@ -40,7 +40,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-sdn = 5; % size of the edge of one layer
+sdn = 12; % size of the edge of one layer
 
 dn = sdn^2; % size of one layer : needs to be a square
 
@@ -55,7 +55,7 @@ q = dn; % number of outputs
 N = 100; % Number of measurements
 
 
-delta = retinalWidth/dn; % distance between cells
+delta = retinalWidth/sdn; % distance between cells
 
 
 %%%% Model
@@ -229,35 +229,36 @@ fprintf(['\n','Input collection... '])
 tStepStart = tic;
 
 
-cMax = 2/Tf;   % max wave velocity
+cMax = 2*retinalWidth/Tf;   % max wave velocity
 cMin = 0; % min wave velocity
-kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
+
+kMax = 2*pi/retinalWidth*(sdn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
 cN = 10;
 kN = 10;
-thetaN = 10;
+thetaN = 16;
 
 
 [controls2DWave, inputParameters2Dwave] = generate2DPlaneWaveControls(sdn, N, Delta, retinalWidth, thetaN, cMin, cMax, cN, kMin, kMax, kN);
 
-[controlsRandom, inputParametersRandom] = generate2DRandomControls(sdn, N, 100, seed);
+%[controlsRandom, inputParametersRandom] = generate2DRandomControls(sdn, N, 100, seed);
 
 % constant input
 
-%counter = length(controls2DWave) + 1;
+counter = length(controls2DWave) + 1;
 
-counter = length(controls2DWave) + length(controlsRandom) + 1;
+% counter = length(controls2DWave) + length(controlsRandom) + 1;
 
 controls = cell(counter,1);
 
-%inputParameters = [inputParameters2Dwave,[NaN;NaN;0]];
+inputParameters = [inputParameters2Dwave,[NaN;NaN;0]];
 
-inputParameters = [inputParameters2Dwave,inputParametersRandom,[NaN;NaN;0]];
+% inputParameters = [inputParameters2Dwave,inputParametersRandom,[NaN;NaN;0]];
 
-% controls(1:end-1) = controls2DWave;
+controls(1:end-1) = controls2DWave;
 
-controls(1:end-1) = [controls2DWave;controlsRandom];
+% controls(1:end-1) = [controls2DWave;controlsRandom];
 
 controls{counter} = ones(m, N); % Constant input at the end
 
@@ -456,8 +457,8 @@ info = cell(lidx,4);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
     info{k,2} = num2str(inputParameters(1,idx(k))/pi);
-    info{k,3} = num2str(inputParameters(2,idx(k)));
-    info{k,4} = num2str(inputParameters(3,idx(k)));
+    info{k,3} = num2str(inputParameters(2,idx(k))/(cMax/2));
+    info{k,4} = num2str(inputParameters(3,idx(k))/(kMax));
 end
 
 % Calculate subplot layout: 2 rows, variable columns
@@ -479,8 +480,151 @@ for l=1:N
         title("weight = " + info{k,1} + ...
             ", \theta = " + info{k,2} + ...
             "\pi, c = " + info{k,3} + ...
-            ", k = " + info{k,4})
-        drawnow
-        pause(0.001)
+            " \times c^*, k = " + info{k,4} + " \times k^*")
+        
+    end
+    drawnow
+    pause(0.001)
+end
+
+
+
+%% Create animated gif (2D controls)
+
+gifname   = 'Optimal_inputs_2D.gif';
+delayTime = 0.05;
+firstFrame = true;
+
+if exist(gifname,'file')
+    delete(gifname)
+end
+
+% --- Figure setup ---
+fig = figure(2);
+clf(fig,'reset')
+set(fig,'Position',[50 50 nCols*400 nRows*400])   
+set(gca,'YDir','normal')
+pause(0.5)
+
+% --- Spatial domain ---
+dx = retinalWidth/(sdn-1);
+x  = 0:dx:(sdn-1)*dx;
+
+% --- Subplot layout ---
+nCols = ceil(lidx/2);
+nRows = min(2,lidx);
+
+for l = 1:N
+
+    clf(fig)
+
+    for k = 1:lidx
+        subplot(nRows,nCols,k)
+
+        control_plot1D = controls{idx(k)}(:,l);
+        control_plot   = reshape(control_plot1D, sdn, sdn);
+
+        imagesc(control_plot,[0,2])
+        colormap(gray)
+        axis image
+
+        xlabel('Position')
+        ylabel('Position')
+        title("weight = " + info{k,1} + ...
+            ", \theta = " + info{k,2} + ...
+            "\pi, c = " + info{k,3} + ...
+            " \times c^*, k = " + info{k,4} + " \times k^*")
+    end
+
+    drawnow
+
+    % --- Capture one frame per l ---
+    frame = getframe(fig);
+    im = frame2im(frame);
+    [A,map] = rgb2ind(im,256);
+
+    if firstFrame
+        imwrite(A,map,gifname,'gif', ...
+                'LoopCount',Inf, ...
+                'DelayTime',delayTime);
+        firstFrame = false;
+    else
+        imwrite(A,map,gifname,'gif', ...
+                'WriteMode','append', ...
+                'DelayTime',delayTime);
     end
 end
+
+
+
+%%
+
+% 
+% gifname   = 'Optimal_inputs_2D_smoothed.gif';
+% delayTime = 0.05;
+% firstFrame = true;
+% 
+% if exist(gifname,'file')
+%     delete(gifname)
+% end
+% 
+% % --- Figure setup ---
+% fig = figure(3);
+% clf(fig,'reset')
+% set(fig,'Position',[50 50 nCols*400 nRows*400])   
+% 
+% pause(0.5)
+% 
+% % --- Spatial domain ---
+% 
+% SSdn = 100
+% 
+% dx = retinalWidth/SSdn;
+% [X,Y] = meshgrid(dx:dx:retinalWidth);
+% 
+% % --- Subplot layout ---
+% nCols = ceil(lidx/2);
+% nRows = min(2,lidx);
+% set(gca,'YDir','normal')
+% for l = 1:N
+% 
+%     clf(fig)
+% 
+%     for k = 1:lidx
+%         subplot(nRows,nCols,k)
+% 
+% 
+%         control_plot1 = 1+cos(inputParameters(3,idx(k))*(cos(inputParameters(1,idx(k)))*(X) + sin(inputParameters(1,idx(k)))*(Y) - inputParameters(2,idx(k))* (l-1) * Delta));
+%         control_plot2 = control_plot1(:);
+%         control_plot = reshape(control_plot2, SSdn, SSdn);
+% 
+%         imagesc(control_plot,[0,2])
+%         colormap(gray)
+%         axis image
+% 
+%         xlabel('Position')
+%         ylabel('Position')
+%         title("weight = " + info{k,1} + ...
+%             ", \theta = " + info{k,2} + ...
+%             "\pi, c = " + info{k,3} + ...
+%             " \times c^*, k = " + info{k,4} + " \times k^*")
+%     end
+% 
+%     drawnow
+% 
+%     % --- Capture ONE frame per l ---
+%     frame = getframe(fig);
+%     im = frame2im(frame);
+%     [A,map] = rgb2ind(im,256);
+% 
+%     if firstFrame
+%         imwrite(A,map,gifname,'gif', ...
+%                 'LoopCount',Inf, ...
+%                 'DelayTime',delayTime);
+%         firstFrame = false;
+%     else
+%         imwrite(A,map,gifname,'gif', ...
+%                 'WriteMode','append', ...
+%                 'DelayTime',delayTime);
+%     end
+% end
