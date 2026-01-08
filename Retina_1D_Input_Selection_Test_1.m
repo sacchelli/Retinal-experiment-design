@@ -19,7 +19,9 @@ timeTakenStart = tic;
 %% FRONT MATTER %%
 
 
-dn = 100; % size of one layer
+dn = 100; % Size of one layer
+
+N = 100; % Number of measurements
 
 
 % Pick the rng seed if necessary.
@@ -45,14 +47,15 @@ cutoff = true;
 % effect is highly dependent on Delta.
 
 depth = 20;
+% depth = 15;
 
 %%% Should we add random controls in addition to waves?
 
-addRandomInputs = false;
+addRandomInputs = true;
 
 % How many?
 
-nbrRandomInputs = 100; % must be >0.
+nbrRandomInputs = 100; % must be >0 if true.
 
 
 
@@ -85,8 +88,6 @@ p = 7; % number of parameters
 
 q = dn; % number of outputs
 
-N = 100; % Number of measurements
-
 
 delta = retinalWidth/dn; % distance between cells
 
@@ -106,7 +107,6 @@ delta = retinalWidth/dn; % distance between cells
 
 D = 0.1 * eye(n); 
 Sigmap = 0.5 * eye(q); 
-
 
 
 %%%% Model topology
@@ -145,9 +145,9 @@ Sigmap = 0.5 * eye(q);
 
 
 % Gamma = laplacian1DGraph(dn);
-Gamma = absoluteLaplacian1DGraph(dn);
+% Gamma = absoluteLaplacian1DGraph(dn);
 % Gamma = laplacian1DGraph(dn);
-% Gamma = closestNeighbor1DGraph(dn);
+ Gamma = closestNeighbor1DGraph(dn);
 
 
 % B -> G and A -> G connections are achieved by Gaussian pooling, (Gaussian
@@ -236,8 +236,6 @@ F = buildF(A, Delta);
 G = buildG(A, B, Delta, prec);
 Sigma = buildSigma(A, D, Delta, prec);
 
-
-
 % Use a cutoff accelerate the computations by killing off diagonal terms:
 
 if cutoff
@@ -249,9 +247,7 @@ else
 end
 
 
-
-
-
+%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
 
 tStepEnd = toc(tStepStart);
 
@@ -281,8 +277,8 @@ for i = 1:p
     
 
     if cutoff 
-        dSb{i} = buildSigmaBoldCutoff(Cb, Cbp, Fb, Sigmab, zeros(q,q), N,depth);
-        Hb{i} = buildHCutoff(Cb, Fb, Gb, N,depth);
+        dSb{i} = buildSigmaBoldCutoff(Cb, Cbp, Fb, Sigmab, zeros(q,q), N, depth);
+        Hb{i} = buildHCutoff(Cb, Fb, Gb, N, depth);
     else
         dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
         Hb{i} = buildH(Cb, Fb, Gb, N);
@@ -331,9 +327,11 @@ fprintf(['\n','Input collection... '])
 
 tStepStart = tic;
 
+cStar = retinalWidth/(100*Delta);
+% cStar = retinalWidth/(Tf);
 
-cMax = 2*retinalWidth/Tf;   % max wave velocity
-cMin = -2*retinalWidth/Tf; % min wave velocity
+cMax = 2*cStar;   % max wave velocity
+cMin = -2*cStar; % min wave velocity
 % cMin = 0; % min wave velocity
 
 kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
@@ -387,7 +385,6 @@ fprintf(['There are ', num2str(K),' inputs in this experiment'])
 
 fprintf(['\n','Fisher Matrices computations... \n'])
 
-% Use cell array for M
 M = cell(K, 1);
 
 tStepStart = tic;
@@ -569,8 +566,8 @@ lidx = length(idx);
 info = cell(lidx,3);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
-    info{k,3} = num2str(inputParameters(2,idx(k))/(kMax));
+    info{k,2} = num2str(inputParameters(1,idx(k))/cStar);
+    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
 end
 
 for l=1:N
@@ -609,7 +606,7 @@ lidx = length(idx);
 info = cell(lidx,3);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k))/(retinalWidth/Tf));
+    info{k,2} = num2str(inputParameters(1,idx(k))/cStar);
     info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
 end
 
@@ -636,57 +633,61 @@ for l=1:N
 
 end
 
-% %% Create animated gif 
-% 
-% % --- GIF parameters ---
-% gifname   = 'Optimal_inputs_1D.gif';
-% delayTime = 0.05;   % seconds between frames
-% firstFrame = true;
-% 
-% if exist(gifname, 'file')
-%     delete(gifname)
-% end
-% 
-% 
-% % --- Figure setup ---
-% 
-% figure(3); 
-% clf(3,'reset') 
-% set(gcf,'Position',[100 100 600 (length(idx)*100)])
-% 
-% for l = 1:N
-% 
-%     clf(3)   % clear figure at each l
-% 
-%     for k = 1:length(idx)
-%         subplot(length(idx),1,k)
-%         control_plot = controls{idx(k)};
-% 
-%         imagesc(control_plot(:,l)', [0,2])
-%         colormap(gray)
-%         axis image
-% 
-%         xlabel('Position (pxl)')
-%         title("weight = " + info{k,1} + ...
-%               ", c = " + info{k,2} + ...
-%               " \times c^*, k = " + info{k,3} + " \times k^*")
-%     end
-% 
-%     drawnow
-% 
-%     % --- Capture one frame per l ---
-%     frame = getframe(gcf);
-%     im = frame2im(frame);
-%     [A,map] = rgb2ind(im,256);
-% 
-%     if firstFrame
-%         imwrite(A, map, gifname, 'gif', ...
-%                 'LoopCount', Inf, ...
-%                 'DelayTime', delayTime);
-%         firstFrame = false;
-%     else
-%         imwrite(A, map, gifname, 'gif', ...
-%                 'WriteMode', 'append', ...
-%                 'DelayTime', delayTime);
-%     end
-% end
+%% Create animated gif %%
+
+% --- GIF parameters ---
+
+date_present = datetime('now','Format','yyyy-MM-dd_HH-mm');
+s = char(date_present);
+
+gifname   = ['video_output/Optimal_inputs_1D_',s,'.gif'];
+delayTime = 0.05;   % seconds between frames
+firstFrame = true;
+
+if exist(gifname, 'file')
+    delete(gifname)
+end
+
+
+% --- Figure setup ---
+
+figure(3); 
+clf(3,'reset') 
+set(gcf,'Position',[100 100 600 (length(idx)*100)])
+
+for l = 1:N
+
+    clf(3)   % clear figure at each l
+
+    for k = 1:length(idx)
+        subplot(length(idx),1,k)
+        control_plot = controls{idx(k)};
+
+        imagesc(control_plot(:,l)', [0,2])
+        colormap(gray)
+        axis image
+
+        xlabel('Position (pxl)')
+        title("weight = " + info{k,1} + ...
+              ", c = " + info{k,2} + ...
+              " \times c^*, k = " + info{k,3} + " \times k^*")
+    end
+
+    drawnow
+
+    % --- Capture one frame per l ---
+    frame = getframe(gcf);
+    im = frame2im(frame);
+    [A,map] = rgb2ind(im,256);
+
+    if firstFrame
+        imwrite(A, map, gifname, 'gif', ...
+                'LoopCount', Inf, ...
+                'DelayTime', delayTime);
+        firstFrame = false;
+    else
+        imwrite(A, map, gifname, 'gif', ...
+                'WriteMode', 'append', ...
+                'DelayTime', delayTime);
+    end
+end
