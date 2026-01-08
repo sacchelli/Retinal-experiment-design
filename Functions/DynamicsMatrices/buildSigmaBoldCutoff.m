@@ -13,23 +13,18 @@ function SigmaBold = buildSigmaBoldCutoff(C1, C2, F, Sigma, Sigmap, N, depth)
 %   depth    - Block bandwidth (only compute blocks within depth blocks of diagonal)
 %
 % Output:
-%   SigmaBold - Block covariance matrix with band diagonal structure (sparse)
+%   SigmaBold - Block covariance matrix with band diagonal structure
 
 n = size(F,1);
 q = size(C1,1);
 
-% Measurement noise contribution
-spdiagSigmap = sparse(kron(eye(N), Sigmap));
-
 % Precompute powers of F applied to C1 and C2
 C1Fpowers = cell(N, 1);
 C2Fpowers = cell(N, 1);
-
 C1Fk = C1;
 C2Fk = C2;
 C1Fpowers{1} = C1Fk;
 C2Fpowers{1} = C2Fk;
-
 for i = 2:N
     C1Fk = C1Fk * F;
     C2Fk = C2Fk * F;
@@ -40,74 +35,56 @@ end
 % Precompute products with Sigma for efficiency
 C1FpowersSigma = cell(N, 1);
 C2FpowersSigma = cell(N, 1);
-
 for i = 1:N
     C1FpowersSigma{i} = C1Fpowers{i} * Sigma;
     C2FpowersSigma{i} = C2Fpowers{i} * Sigma;
 end
 
-% Compute presum terms, but ONLY for d <= depth
-% presum{k}{d+1} is only computed if d <= depth
-presum = cell(N, 1);
-
+% Compute presum{k,l} only for pairs within depth of diagonal
+presum = cell(N, N);
 for k = 1:N
-    % Only compute up to min(k-1, depth) terms
-    maxD = min(k-1, depth);
-    presum{k} = cell(maxD + 1, 1);  % d goes from 0 to maxD
-    
-    for d = 0:maxD
-        presum{k}{d+1} = C1FpowersSigma{k} * C2Fpowers{k-d}' + ...
-                         C2FpowersSigma{k} * C1Fpowers{k-d}';
+    lMin = max(1, k - depth);
+    for l = lMin:k
+        presum{k,l} = C1FpowersSigma{k} * C2Fpowers{l}' + ...
+                      C2FpowersSigma{k} * C1Fpowers{l}';
     end
 end
 
-% Initialize sparse matrix
-SigmaAux = sparse(q*N, q*N);
+% Use FULL matrix (not sparse) - faster for moderate N and depth
+SigmaAux = zeros(q*N, q*N);
 
-% Off-diagonal blocks: only fill blocks within depth blocks of diagonal
+% Build elements cell array using incremental accumulation
+% Only allocate cells we'll actually use
+elements = cell(N, N);
+
+% Initialize first column (l=1) for ALL k
+% This is needed because diagonal blocks accumulate from all presum{k,1}
 for k = 1:N
-    maxD = min(k-1, depth);  % Only process d <= depth
-    
-    for d = 1:maxD
-        % For block (k, k-d), we need to sum presum{k-offset}{d+1}
-        % But we only have presum terms up to depth
-        % The offset goes from 0 to min(k-d-1, depth-d)
-        
-        blk = zeros(q, q);
-        maxOffset = k - d - 1;  % Maximum possible offset
-        
-        for offset = 0:maxOffset
-            kIdx = k - offset;
-            % Only accumulate if this presum term exists (d <= depth for that k)
-            if d <= min(kIdx-1, depth) && kIdx <= N
-                blk = blk + presum{kIdx}{d+1};
-            end
-        end
-        
-        SigmaAux((k-1)*q + (1:q), ((k-d)-1)*q + (1:q)) = blk;
+    elements{k,1} = presum{k,1};
+end
+
+% Fill elements incrementally - only within depth band from diagonal
+for l = 2:N
+    kMin = l;  % k >= l (lower triangular)
+    kMax = min(N, l + depth);  % Only within depth
+    for k = kMin:kMax
+        % Use incremental update: elements{k,l} = elements{k-1,l-1} + presum{k,l}
+        elements{k,l} = elements{k-1,l-1} + presum{k,l};
     end
 end
 
-% Make symmetric
-SigmaAux = SigmaAux + SigmaAux';
-
-% Diagonal blocks
-for k = 1:N
-    blk = zeros(q, q);
+% Populate SigmaAux - only fill blocks within depth band
+for l = 1:N
+    % Diagonal block (k=l) - always computed via first column initialization
+    SigmaAux((l-1)*q+1:l*q, (l-1)*q+1:l*q) = elements{l,l} + Sigmap;
     
-    % Sum over presum{k-offset}{1} where offset goes from 0 to k-1
-    % But we only have presum{j}{1} for j where 0 <= depth (always satisfied for d=0)
-    for offset = 0:(k-1)
-        kIdx = k - offset;
-        if kIdx >= 1 && kIdx <= N
-            blk = blk + presum{kIdx}{1};
-        end
+    % Off-diagonal blocks (k > l), only within depth
+    kMax = min(N, l + depth);
+    for k = l+1:kMax
+        SigmaAux((k-1)*q+1:k*q, (l-1)*q+1:l*q) = elements{k,l};
+        SigmaAux((l-1)*q+1:l*q, (k-1)*q+1:k*q) = (elements{k,l})';
     end
-    
-    SigmaAux((k-1)*q + (1:q), (k-1)*q + (1:q)) = blk;
 end
 
-% Add measurement noise
-SigmaBold = SigmaAux + spdiagSigmap;
-
+SigmaBold = sparse(SigmaAux);
 end

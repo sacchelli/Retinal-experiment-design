@@ -235,15 +235,22 @@ tStepStart = tic;
 F = buildF(A, Delta);
 G = buildG(A, B, Delta, prec);
 Sigma = buildSigma(A, D, Delta, prec);
-SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
-SigmaBoldinv = inv(SigmaBold);
 
 
-% Use this to accelerate the computations by killing off diagonal terms:
+
+% Use a cutoff accelerate the computations by killing off diagonal terms:
 
 if cutoff
-    SigmaBoldinv = bandBlockDiagonalFilter(SigmaBoldinv,depth,q,q); 
+    SigmaBold = buildSigmaBoldCutoff(C, C/2, F, Sigma, Sigmap, N,depth);
+    SigmaBoldinv = bandBlockDiagonalFilter(inv(full(SigmaBold)),depth,q,q); 
+else
+    SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
+    SigmaBoldinv = inv(SigmaBold);
 end
+
+
+
+
 
 
 tStepEnd = toc(tStepStart);
@@ -272,16 +279,14 @@ for i = 1:p
     
     Sigmab = buildSigma(Ab, Db, Delta, prec);
     
-    Hb{i} = buildH(Cb, Fb, Gb, N);
-    dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
-    if cutoff
-        % Hb{i} = sparse(bandDiagonalFilter(Hb{i},depth*q));
-        % dSb{i} = sparse(bandDiagonalFilter(dSb{i},depth*q));
-        
-        Hb{i} = bandBlockDiagonalFilter(Hb{i},depth,q,m);
-        dSb{i} = bandBlockDiagonalFilter(dSb{i},depth,q,q);
-    end
 
+    if cutoff 
+        dSb{i} = buildSigmaBoldCutoff(Cb, Cbp, Fb, Sigmab, zeros(q,q), N,depth);
+        Hb{i} = buildHCutoff(Cb, Fb, Gb, N,depth);
+    else
+        dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
+        Hb{i} = buildH(Cb, Fb, Gb, N);
+    end 
 
     tStepEnd = toc(tStepStart);
 
@@ -551,7 +556,6 @@ fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2s
 
 %% Animate the input
 
-
 figure(1)
 clf
 pause(1)
@@ -595,7 +599,6 @@ end
 
 %% Animate based on luminosity
 
-
 figure(2)
 clf
 pause(1)
@@ -633,57 +636,57 @@ for l=1:N
 
 end
 
-%% Create animated gif 
-
-% --- GIF parameters ---
-gifname   = 'Optimal_inputs_1D.gif';
-delayTime = 0.05;   % seconds between frames
-firstFrame = true;
-
-if exist(gifname, 'file')
-    delete(gifname)
-end
-
-
-% --- Figure setup ---
-
-figure(3); 
-clf(3,'reset') 
-set(gcf,'Position',[100 100 600 (length(idx)*100)])
-
-for l = 1:N
-
-    clf(3)   % clear figure at each l
-    
-    for k = 1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-
-        imagesc(control_plot(:,l)', [0,2])
-        colormap(gray)
-        axis image
-
-        xlabel('Position (pxl)')
-        title("weight = " + info{k,1} + ...
-              ", c = " + info{k,2} + ...
-              " \times c^*, k = " + info{k,3} + " \times k^*")
-    end
-
-    drawnow
-
-    % --- Capture one frame per l ---
-    frame = getframe(gcf);
-    im = frame2im(frame);
-    [A,map] = rgb2ind(im,256);
-
-    if firstFrame
-        imwrite(A, map, gifname, 'gif', ...
-                'LoopCount', Inf, ...
-                'DelayTime', delayTime);
-        firstFrame = false;
-    else
-        imwrite(A, map, gifname, 'gif', ...
-                'WriteMode', 'append', ...
-                'DelayTime', delayTime);
-    end
-end
+% %% Create animated gif 
+% 
+% % --- GIF parameters ---
+% gifname   = 'Optimal_inputs_1D.gif';
+% delayTime = 0.05;   % seconds between frames
+% firstFrame = true;
+% 
+% if exist(gifname, 'file')
+%     delete(gifname)
+% end
+% 
+% 
+% % --- Figure setup ---
+% 
+% figure(3); 
+% clf(3,'reset') 
+% set(gcf,'Position',[100 100 600 (length(idx)*100)])
+% 
+% for l = 1:N
+% 
+%     clf(3)   % clear figure at each l
+% 
+%     for k = 1:length(idx)
+%         subplot(length(idx),1,k)
+%         control_plot = controls{idx(k)};
+% 
+%         imagesc(control_plot(:,l)', [0,2])
+%         colormap(gray)
+%         axis image
+% 
+%         xlabel('Position (pxl)')
+%         title("weight = " + info{k,1} + ...
+%               ", c = " + info{k,2} + ...
+%               " \times c^*, k = " + info{k,3} + " \times k^*")
+%     end
+% 
+%     drawnow
+% 
+%     % --- Capture one frame per l ---
+%     frame = getframe(gcf);
+%     im = frame2im(frame);
+%     [A,map] = rgb2ind(im,256);
+% 
+%     if firstFrame
+%         imwrite(A, map, gifname, 'gif', ...
+%                 'LoopCount', Inf, ...
+%                 'DelayTime', delayTime);
+%         firstFrame = false;
+%     else
+%         imwrite(A, map, gifname, 'gif', ...
+%                 'WriteMode', 'append', ...
+%                 'DelayTime', delayTime);
+%     end
+% end

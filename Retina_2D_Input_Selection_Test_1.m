@@ -1,7 +1,22 @@
-addpath './Functions'
-clc
+% The following script can be used to repoduce the numerical experiments
+% present in the paper "...." by ....
 
+% In the present script, we only select the optimal experiment on the basis
+% of a nominal value, the maximum likelihood estimation in itself is not
+% achieved here.
+
+% This particular script focuses on the 1-dimensional model of the retina,
+% which requires slightly different adjustments in the code.
+
+
+
+addpath(genpath('./Functions'))
+clc
 timeTakenStart = tic;
+
+
+
+%% FRONT MATTER %%
 
 % Pick the rng seed if necessary.
 
@@ -40,7 +55,7 @@ wAG = 0.0137853; % kHz
 
 %%%% Numerical data
 
-sdn = 12; % size of the edge of one layer
+sdn = 7; % size of the edge of one layer
 
 dn = sdn^2; % size of one layer : needs to be a square
 
