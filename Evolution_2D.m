@@ -4,10 +4,10 @@ timeTakenStart = tic;
 
 %% FRONT MATTER %%
 
-sdn = 16; % Size of the edge of one layer
+sdn = 30; % Size of the edge of one layer
 dn = sdn^2; % Size of one layer 
 
-N = 200; % Number of measurements
+N = 100; % Number of measurements
 
 %%% Should we cutoff correlations?
 cutoff = true;
@@ -130,8 +130,8 @@ cMin = 0;
 kMax = 2*pi/retinalWidth*(sdn-1)/2;
 kMin = 2*pi/(retinalWidth);
 
-cN = 20;
-kN = 20;
+cN = 10;
+kN = 10;
 thetaN = 16;
 
 [controls2DWave, inputParameters2Dwave] = generate2DPlaneWaveControls(sdn, N, Delta, retinalWidth, thetaN, cMin, cMax, cN, kMin, kMax, kN);
@@ -164,14 +164,34 @@ fprintf('Total inputs: %d\n', K)
 
 
 
-%controlID = randi(K);
+% controlID = randi(K);
 controlID = 1;
+theta = 5*pi/4; % wave direction of propagation
+c = cStar; % wave velocity
+kNumber = 2; % wave number
 
+control_temp2D = zeros(sdn,sdn);
+control_temp1D = zeros(sdn*sdn, N);
+for it = 1:N
+    t = (it-1) * Delta;
+    for ix = 1:sdn
+        x = (ix-1) * dx;  % Start at x=0
+        for iy = 1:sdn
+            y = (iy-1) * dx; % Start at y=0
+            control_temp2D(iy,ix) = 1 + cos(kNumber*(cos(theta)*x + sin(theta)*y) - c*kNumber*t);
+        end 
+    end
+    control_temp1D(:,it) = control_temp2D(:);
+end
 
 
 
 fprintf('\nUsing control ID: %d\n', controlID)
-u = controls{controlID};
+%u = controls{controlID};
+
+u = control_temp1D;
+
+fprintf(['Propagation angle: ',num2str(inputParameters(1,controlID)/pi),' pi\n'])
 
 % Setup figure BEFORE simulation
 fprintf('Setting up visualization...\n')
@@ -200,7 +220,7 @@ for row = 1:nRows
         % Create dummy image to get handle
         im_handles(row, col) = imagesc(zeros(sdn, sdn), 'Parent', ax_handles(row, col));
         axis(ax_handles(row, col), 'image')
-        
+        set(gca,'YDir','normal')
         % Set colormap
         if row == 1
             colormap(ax_handles(row, col), gray)
@@ -267,5 +287,6 @@ for l = 1:N
     drawnow limitrate
 end
 
-fprintf('\nAnimation complete!\n')
+fprintf(['Propagation angle: ',num2str(inputParameters(1,controlID)/pi),' pi'])
+fprintf('\nAnimation complete!\n') 
 fprintf('Total time: %.2fs\n', toc(timeTakenStart))

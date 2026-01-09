@@ -42,7 +42,7 @@ cutoff = true;
 
 % If cutoff is 'true', then depth determines the forgetting time
 % beyond which we assume we can discard the correlations. Experimenting,
-% it seems depth * q. 20 is a good choice under current data. It is
+% it seems depth 20 is a good choice under current data. It is
 % possible to experiment with the function 'plotDiagonalMax' to see the
 % decrease in amplitude of the matrices along the diagonal. Naturally, this
 % effect is highly dependent on Delta.
@@ -52,7 +52,7 @@ depth = 20;
 
 %%% Should we add random controls in addition to waves?
 
-addRandomInputs = false;
+addRandomInputs = true;
 
 % How many?
 
@@ -228,12 +228,12 @@ else
     SigmaBoldinv = inv(SigmaBold);
 end
 
-
-%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
-
 tStepEnd = toc(tStepStart);
 
 fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
+
+%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
+
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
@@ -552,7 +552,7 @@ info = cell(lidx,4);
 for k=1:length(idx)
     info{k,1} = num2str(wnew(idx(k)));
     info{k,2} = num2str(inputParameters(1,idx(k))/pi);
-    info{k,3} = num2str(inputParameters(2,idx(k))/(cMax/2));
+    info{k,3} = num2str(inputParameters(2,idx(k))/(cStar));
     info{k,4} = num2str(inputParameters(3,idx(k))/(kMax));
 end
 
@@ -569,7 +569,7 @@ for l=1:N
         imagesc(control_plot, [0,2])
         colormap(gray);
         axis image;
-        
+        set(gca,'YDir','normal')
         xlabel('Position')
         ylabel('Position')
         title("weight = " + info{k,1} + ...
@@ -624,6 +624,7 @@ for l = 1:N
 
         imagesc(control_plot,[0,2])
         colormap(gray)
+        set(gca,'YDir','normal')
         axis image
 
         xlabel('Position')

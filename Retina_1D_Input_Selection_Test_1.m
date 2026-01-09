@@ -41,7 +41,7 @@ cutoff = true;
 
 % If cutoff is 'true', then depth determines the forgetting time
 % beyond which we assume we can discard the correlations. Experimenting,
-% it seems  depth * q. 20 is a good choice under current data. It is
+% it seems  depth 20 is a good choice under current data. It is
 % possible to experiment with the function 'plotDiagonalMax' to see the
 % decrease in amplitude of the matrices along the diagonal. Naturally, this
 % effect is highly dependent on Delta.
