@@ -3,8 +3,8 @@ function A_band = bandBlockDiagonalFilter(A, depth, q, m)
 %
 % Inputs:
 %   A         - Input matrix (can be sparse or dense)
-%   bandwidth - Number of diagonals to keep on each side of main diagonal
-%               For example, bandwidth=1 keeps main, super, and sub diagonals
+%   q,m       - block size q x m
+%   depth     - number of blocks in the band (q=0 is block diagonal)
 %
 % Output:
 %   A_band    - Matrix with only band diagonal elements (sparse format)

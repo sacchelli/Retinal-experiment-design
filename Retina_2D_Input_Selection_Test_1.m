@@ -47,8 +47,9 @@ cutoff = true;
 % decrease in amplitude of the matrices along the diagonal. Naturally, this
 % effect is highly dependent on Delta.
 
-depth = 20;
-% depth = 15;
+depth = 20; % Seems to be a sweet spot under current values, 
+            % increase Delta to decrease the depth.
+
 
 %%% Should we add random controls in addition to waves?
 
@@ -56,8 +57,12 @@ addRandomInputs = true;
 
 % How many?
 
-nbrRandomInputs = 100; % must be >0 if true.
+nbrRandomInputs = 200; % must be >0 if true.
 
+
+%%% Should we create an animated gif of the result at the end?
+
+createAnimatedGIF = true;
 
 
 %% DYNAMICS CONSTRUCTION
@@ -121,15 +126,18 @@ Sigmap = 0.5 * eye(q);
 % other weights are 1.
 
 % 'adjacencyLaplacian2DGraph' connection: Bij -(1)-> Aij
-% 'absoluteLaplacian2DGraph' connection: Bij -(-4)-> Aij
-% 'laplacian2DGraph' connection: Bij -(4)-> Aij
+% 'absoluteLaplacian2DGraph' connection: Bij -(4)-> Aij 
 % 'closestNeighbor2DGraph' connection: Bij -(0)-> Aij
+% 'laplacian2DGraph' connection (unrealistic for the retina): Bij -(-4)-> Aij
 
 
-Gamma = adjacencyLaplacian2DGraph(sdn);
+% Gamma = adjacencyLaplacian2DGraph(sdn);
+
 % Gamma = absoluteLaplacian2DGraph(sdn);
+
+Gamma = closestNeighbor2DGraph(sdn);
+
 % Gamma = laplacian2DGraph(sdn);
-% Gamma = closestNeighbor2DGraph(sdn);
 
 
 % B -> G and A -> G connections are achieved by Gaussian pooling, (Gaussian
@@ -163,7 +171,7 @@ Acell{8} = 1/tauB*Acell{1} + 1/tauA*Acell{2} + 1/tauG*Acell{3} ...
 % around that value.
 
 
-Delta = max([tauA,tauB,tauG])/5; % Time between two measurements
+Delta = max([tauA,tauB,tauG])/2; % Time between two measurements
 
 Tf = N * Delta; % Total duration of the experiment
 
@@ -188,6 +196,7 @@ thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG]; % Compilation of the exp
 % contained in Acell{8}).
 
 thetaNominal = 0.*thetaData;
+
 %thetaNominal = (rand(1,p)-1/2)/2.*thetaData;
 
 
@@ -216,24 +225,23 @@ tStepStart = tic;
 
 F = buildF(A, Delta);
 G = buildG(A, B, Delta, prec);
-Sigma = buildSigma(A, D, Delta, prec);
+Sigma = lyap(A,D*D');
+SigmaDelta = Sigma-F*Sigma*F;
 
-% Use a cutoff accelerate the computations by killing off diagonal terms:
+% Use a cutoff accelerate the computations by making the matrix banded:
 
 if cutoff
-    SigmaBold = buildSigmaBoldCutoff(C, C/2, F, Sigma, Sigmap, N,depth);
-    SigmaBoldinv = bandBlockDiagonalFilter(inv(full(SigmaBold)),depth,q,q); 
+    SigmaBoldInv = buildSigmaBoldInvCutoff(C, F, Sigma, Sigmap, N, depth);
 else
-    SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
-    SigmaBoldinv = inv(SigmaBold);
+    SigmaBoldInv = buildSigmaBoldInv(C, F, Sigma, Sigmap, N);
 end
 
 tStepEnd = toc(tStepStart);
 
 fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 
-%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
 
+%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
@@ -252,13 +260,8 @@ for i = 1:p
     Db = [D, zeros(n,n); zeros(n,n), zeros(n,n)];
 
     Fb = buildF(Ab, Delta);
-    
     Gb = buildG(Ab, Bb, Delta, prec);
-    
-    Sigmab = buildSigma(Ab, Db, Delta, prec);
-    
-    Hb{i} = buildH(Cb, Fb, Gb, N);
-    dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
+    Sigmab = lyap(Ab,Db*Db'); 
     
     if cutoff 
         dSb{i} = buildSigmaBoldCutoff(Cb, Cbp, Fb, Sigmab, zeros(q,q), N, depth);
@@ -273,35 +276,27 @@ for i = 1:p
     fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 end
 
+
+%% COMPUTATION OF MATRIX Q %%
+
 timeTakenCheck = toc(timeTakenStart);
 
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
 
 fprintf(['\n','Q matrix computation... \n'])
 
-
-Q = zeros(p,p);
-halfQ = cell(p, 1);
-
-for i = 1:p
-    fprintf(['Parameter ',num2str(i),'/',num2str(p)])
-    tStepStart = tic;
-    halfQ{i} = full(SigmaBoldinv) * full(dSb{i});
-    tStepEnd = toc(tStepStart);
-    fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
+if cutoff
+    Q = buildQCutoff(SigmaBoldInv, dSb, N, depth);
+else
+    Q = buildQ(SigmaBoldInv, dSb, N, depth);
 end
-
-for i = 1:p
-    for j = 1:i
-        Q(i,j) = 0.5*trAB(halfQ{i}, halfQ{j});
-        Q(j,i) = Q(i,j);
-    end
-end
-
 
 timeTakenCheck = toc(timeTakenStart);
 
+fprintf(['\n','Q matrix computation done. \n'])
+
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
+
 
 %% COLLECTION OF INPUTS %%
 
@@ -314,13 +309,13 @@ tStepStart = tic;
 cStar = retinalWidth/(100*Delta);
 % cStar = retinalWidth/(Tf);
 
-cMax = 2*cStar;   % max wave velocity
+cMax = 20*cStar;   % max wave velocity
 cMin = 0; % min wave velocity
 
 kMax = 2*pi/retinalWidth*(sdn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
-cN = 10;
+cN = 30;
 kN = 10;
 thetaN = 16; % Theta spans 0 to 2 pi.
 
@@ -374,19 +369,19 @@ M = cell(K, 1);
 
 tStepStart = tic;
 
+Mi = zeros(p,p);
+Hju = zeros(N*q, p);
+SBiHju = zeros(N*q, p);
+
 for i = 1:K
     u = controls{i};
     u = u(:);
-    Mi = zeros(p,p);
-    L2u = max(1/Tf*(u'*u)/N, 0.000001);
-    u = u/sqrt(L2u);
+    % L2u = max(1/Tf*(u'*u)/N, 0.000001);
+    % u = u/sqrt(L2u);
     
-    Hju = zeros(N*q, p);
-    SBiHju = zeros(N*q, p);
-
     for j = 1:p
         Hju(:,j) = Hb{j} * u;
-        SBiHju(:,j) = SigmaBoldinv * Hju(:,j);
+        SBiHju(:,j) = SigmaBoldInv * Hju(:,j);
     end
 
     for j = 1:p
@@ -397,7 +392,7 @@ for i = 1:K
         end
     end
 
-    M{i} = Mi/(N*q); % Rescale of final Fisher information matrix in order to account for influece of N and q
+    M{i} = Mi/(N*q); % Rescale of final Fisher information matrix in order to account for influence of N and q
     
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
@@ -451,10 +446,12 @@ Mnew = Mold;
 
 %%% Exploration loop
 
-maxStepSearch = 1000; % Max number of loops
+maxStepSearch = 2000; % Max number of loops
 i = 0;
 improvementThreshold = 10^(-8);
 improvement = 1;
+
+tSearchStart = tic;
 
 while (i < maxStepSearch) && (improvement > improvementThreshold)
     
@@ -467,8 +464,10 @@ while (i < maxStepSearch) && (improvement > improvementThreshold)
 
     maxDer = -Inf;
     maxDerIndex = 0;
+    MoldInv = Mold\eye(p);
+
     for k = 1:K                     
-        der = trAB(inv(Mold), M{k});
+        der = trAB(MoldInv, M{k});
         if maxDer < der
             maxDer = der;
             maxDerIndex = k;
@@ -517,7 +516,9 @@ while (i < maxStepSearch) && (improvement > improvementThreshold)
 
 end
 
+tSearchTaken = toc(tSearchStart);
 
+fprintf(['\n','Search time: ', num2str(tSearchTaken,3) ,'s \n'])
 
 fprintf(['Max score of a matrix : ', num2str(maxScore), '\n'])
 
@@ -525,6 +526,14 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
+if addRandomInputs
+    wRand = 1/nbrRandomInputs;
+    Mrand = zeros(p,p);
+    for k = K-1:-1:K-1-nbrRandomInputs
+        Mrand = Mrand + wRand * M{k};
+    end
+    fprintf(['Score of random inputs : ', num2str(logdet(Mrand)), '\n'])
+end
 
 threshold = 0.01;
 
@@ -566,7 +575,7 @@ for l=1:N
         control_plot1D = controls{idx(k)}(:,l);
         control_plot = reshape(control_plot1D, sdn, sdn);
         
-        imagesc(control_plot, [0,2])
+        imagesc(control_plot, [0,1])
         colormap(gray);
         axis image;
         set(gca,'YDir','normal')
@@ -586,70 +595,72 @@ end
 
 %% Create animated gif (2D controls)
 
-date_present = datetime('now','Format','yyyy-MM-dd_HH-mm');
-s = char(date_present);
+if createAnimatedGIF
 
-gifname   = ['video_output/Optimal_inputs_2D_',s,'.gif'];
-delayTime = 0.05;
-firstFrame = true;
-
-if exist(gifname,'file')
-    delete(gifname)
-end
-
-% --- Figure setup ---
-fig = figure(2);
-clf(fig,'reset')
-set(fig,'Position',[50 50 nCols*400 nRows*400])   
-set(gca,'YDir','normal')
-pause(0.5)
-
-% --- Spatial domain ---
-dx = retinalWidth/(sdn-1);
-x  = 0:dx:(sdn-1)*dx;
-
-% --- Subplot layout ---
-nCols = ceil(lidx/2);
-nRows = min(2,lidx);
-
-for l = 1:N
-
-    clf(fig)
-
-    for k = 1:lidx
-        subplot(nRows,nCols,k)
-
-        control_plot1D = controls{idx(k)}(:,l);
-        control_plot   = reshape(control_plot1D, sdn, sdn);
-
-        imagesc(control_plot,[0,2])
-        colormap(gray)
-        set(gca,'YDir','normal')
-        axis image
-
-        xlabel('Position')
-        ylabel('Position')
-        title("weight = " + info{k,1} + ...
-            ", \theta = " + info{k,2} + ...
-            "\pi, c = " + info{k,3} + ...
-            " \times c^*, k = " + info{k,4} + " \times k^*")
+    datePresent = datetime('now','Format','yyyy-MM-dd_HH-mm');
+    s = char(datePresent);
+    
+    gifname   = ['videoOutput/Optimal_inputs_2D_',s,'.gif'];
+    delayTime = 0.05;
+    firstFrame = true;
+    
+    if exist(gifname,'file')
+        delete(gifname)
     end
+    
+    % --- Subplot layout ---
+    nCols = ceil(lidx/2);
+    nRows = min(2,lidx);
 
-    drawnow
+    % --- Figure setup ---
+    
+    fig = figure(2);
+    clf(fig,'reset')
+    set(fig,'Position',[50 50 nCols*600 nRows*400])   
+    set(gca,'YDir','normal')
+    
+    % --- Spatial domain ---
+    dx = retinalWidth/(sdn-1);
+    x  = 0:dx:(sdn-1)*dx;
+    
 
-    % --- Capture one frame per l ---
-    frame = getframe(fig);
-    im = frame2im(frame);
-    [A,map] = rgb2ind(im,256);
-
-    if firstFrame
-        imwrite(A,map,gifname,'gif', ...
-                'LoopCount',Inf, ...
-                'DelayTime',delayTime);
-        firstFrame = false;
-    else
-        imwrite(A,map,gifname,'gif', ...
-                'WriteMode','append', ...
-                'DelayTime',delayTime);
+    for l = 1:N
+        
+        for k = 1:lidx
+            subplot(nRows,nCols,k)
+    
+            control_plot1D = controls{idx(k)}(:,l);
+            control_plot   = reshape(control_plot1D, sdn, sdn);
+    
+            imagesc(control_plot,[0,1])
+            colormap(gray)
+            set(gca,'YDir','normal')
+            axis image
+    
+            xlabel('Position')
+            ylabel('Position')
+            title("weight = " + info{k,1} + ...
+                ", \theta = " + info{k,2} + ...
+                "\pi, c = " + info{k,3} + ...
+                " \times c^*, k = " + info{k,4} + " \times k^*")
+        end
+    
+        drawnow
+    
+        % --- Capture one frame per l ---
+        frame = getframe(fig);
+        im = frame2im(frame);
+        [A,map] = rgb2ind(im,256);
+    
+        if firstFrame
+            imwrite(A,map,gifname,'gif', ...
+                    'LoopCount',Inf, ...
+                    'DelayTime',delayTime);
+            firstFrame = false;
+        else
+            imwrite(A,map,gifname,'gif', ...
+                    'WriteMode','append', ...
+                    'DelayTime',delayTime);
+        end
     end
 end

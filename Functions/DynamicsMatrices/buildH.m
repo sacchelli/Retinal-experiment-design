@@ -1,6 +1,19 @@
 function H = buildH(C, F, G, N)
+% BUILDH Constructs the full impulse response (Toeplitz) matrix
+%
+% This function builds the block lower triangular matrix H, representing 
+% the mapping from the input sequence to the output sequence over N steps.
+% The matrix is composed of Markov parameters: H_k = C * F^(k-1) * G.
+%
+% Inputs:
+%   C - Observation matrix (q x n)
+%   F - Discrete-time state transition matrix (n x n)
+%   G - Discrete-time input matrix (n x m)
+%   N - Prediction horizon / number of time steps
+%
+% Output:
+%   H - Block Toeplitz matrix (N*q x N*m)
 
-n = size(C,2);
 q = size(C,1);
 m = size(G,2);
 

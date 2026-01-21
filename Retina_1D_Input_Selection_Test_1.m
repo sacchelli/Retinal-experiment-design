@@ -46,8 +46,9 @@ cutoff = true;
 % decrease in amplitude of the matrices along the diagonal. Naturally, this
 % effect is highly dependent on Delta.
 
-depth = 20;
-% depth = 15;
+depth = 20; % Seems to be a sweet spot under current values, 
+            % increase Delta to decrease the depth.
+
 
 %%% Should we add random controls in addition to waves?
 
@@ -55,14 +56,17 @@ addRandomInputs = true;
 
 % How many?
 
-nbrRandomInputs = 100; % must be >0 if true.
+nbrRandomInputs = 300; % must be >0 if true.
 
+
+%%% Should we create an animated gif of the result at the end?
+
+createAnimatedGIF = true;
 
 
 %% DYNAMICS CONSTRUCTION
 
 %%%% Data // following the reference.
-
 
 retinalWidth = 2; % mm 
 
@@ -129,13 +133,6 @@ Sigmap = 0.5 * eye(q);
 %       /   |   \
 %   A(i-1)  Ai   A(i+1)
 
-% 'Laplacian' connection graph:
-%           Bi
-%         / | \
-%        1  -2 1
-%       /   |   \
-%   A(i-1)  Ai   A(i+1)
-
 % 'closestNeighbor' connection graph:
 %           Bi
 %         / | \
@@ -143,11 +140,20 @@ Sigmap = 0.5 * eye(q);
 %       /   |   \
 %   A(i-1)  Ai   A(i+1)
 
+% 'Laplacian' connection graph (unrealistic for the retina):
+%           Bi
+%         / | \
+%        1  -2 1
+%       /   |   \
+%   A(i-1)  Ai   A(i+1)
 
 % Gamma = laplacian1DGraph(dn);
+
 % Gamma = absoluteLaplacian1DGraph(dn);
+
+Gamma = closestNeighbor1DGraph(dn);
+
 % Gamma = laplacian1DGraph(dn);
- Gamma = closestNeighbor1DGraph(dn);
 
 
 % B -> G and A -> G connections are achieved by Gaussian pooling, (Gaussian
@@ -181,7 +187,7 @@ Acell{8} = 1/tauB*Acell{1} + 1/tauA*Acell{2} + 1/tauG*Acell{3} ...
 % around that value.
 
 
-Delta = max([tauA,tauB,tauG])/5; % Time between two measurements
+Delta = max([tauA,tauB,tauG])/2; % Time between two measurements
 
 Tf = N * Delta; % Total duration of the experiment
 
@@ -201,12 +207,14 @@ C = sparse([zeros(q,2*dn),eye(q,dn)]);
 thetaData = [1/tauB, 1/tauA, 1/tauG, wm, wp, wBG, wAG]; % Compilation of the experimental data
 
 % We can choose the nominal vector theta, either as thetaData or as a
-% variation of it. Again, we made the choice for this code that  the 
+% variation of it. Again, we made the choice for this code that the 
 % values input in thetaNominal are variations around thetaData (already 
 % contained in Acell{8}).
 
+
 thetaNominal = 0.*thetaData;
-%thetaNominal = (rand(1,p)-1/2)/2.*thetaData;
+
+% thetaNominal = (rand(1,p)-1/2)/2.*thetaData;
 
 
 A = Acell{p+1};
@@ -215,7 +223,6 @@ for i = 1:p
 end
 
 maxReEigA = max(real(eigs(A)));
-
 
 
 fprintf(['Data created, size of one layer: ', num2str(dn),', Max Re(λ(A)) = ', num2str(maxReEigA), '. \n'])
@@ -234,24 +241,24 @@ tStepStart = tic;
 
 F = buildF(A, Delta);
 G = buildG(A, B, Delta, prec);
-Sigma = buildSigma(A, D, Delta, prec);
+Sigma = lyap(A,D*D');
+SigmaDelta = Sigma-F*Sigma*F;
 
-% Use a cutoff accelerate the computations by killing off diagonal terms:
+% Use a cutoff accelerate the computations by making the matrix banded:
 
 if cutoff
-    SigmaBold = buildSigmaBoldCutoff(C, C/2, F, Sigma, Sigmap, N,depth);
-    SigmaBoldinv = bandBlockDiagonalFilter(inv(full(SigmaBold)),depth,q,q); 
+    SigmaBoldInv = buildSigmaBoldInvCutoff(C, F, Sigma, Sigmap, N, depth);
 else
-    SigmaBold = buildSigmaBold(C, C/2, F, Sigma, Sigmap, N);
-    SigmaBoldinv = inv(SigmaBold);
+    SigmaBoldInv = buildSigmaBoldInv(C, F, Sigma, Sigmap, N);
 end
 
 
-%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
-
 tStepEnd = toc(tStepStart);
 
-fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
+fprintf(['done (', num2str(tStepEnd,3) ,'s). \n']) 
+
+
+%% PARTIAL DERIVATIVES PRE-COMPUTATIONS %%
 
 fprintf(['\n','Parameter sensitivities pre-computation... \n'])
 
@@ -270,12 +277,9 @@ for i = 1:p
     Db = [D, zeros(n,n); zeros(n,n), zeros(n,n)];
 
     Fb = buildF(Ab, Delta);
-    
     Gb = buildG(Ab, Bb, Delta, prec);
+    Sigmab = lyap(Ab,Db*Db'); 
     
-    Sigmab = buildSigma(Ab, Db, Delta, prec);
-    
-
     if cutoff 
         dSb{i} = buildSigmaBoldCutoff(Cb, Cbp, Fb, Sigmab, zeros(q,q), N, depth);
         Hb{i} = buildHCutoff(Cb, Fb, Gb, N, depth);
@@ -283,11 +287,14 @@ for i = 1:p
         dSb{i} = buildSigmaBold(Cb, Cbp, Fb, Sigmab, zeros(q,q), N);
         Hb{i} = buildH(Cb, Fb, Gb, N);
     end 
-
+    
     tStepEnd = toc(tStepStart);
 
     fprintf(['done (', num2str(tStepEnd,3) ,'s). \n'])
 end
+
+
+%% COMPUTATION OF MATRIX Q %%
 
 timeTakenCheck = toc(timeTakenStart);
 
@@ -295,29 +302,18 @@ fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'
 
 fprintf(['\n','Q matrix computation... \n'])
 
-
-Q = zeros(p,p);
-halfQ = cell(p, 1);
-
-for i = 1:p
-    fprintf(['Parameter ',num2str(i),'/',num2str(p)])
-    tStepStart = tic;
-    halfQ{i} = full(SigmaBoldinv) * full(dSb{i});
-    tStepEnd = toc(tStepStart);
-    fprintf([' done (', num2str(tStepEnd,3) ,'s).\n'])
+if cutoff
+    Q = buildQCutoff(SigmaBoldInv, dSb, N, depth);
+else
+    Q = buildQ(SigmaBoldInv, dSb, N, depth);
 end
-
-for i = 1:p
-    for j = 1:i
-        Q(i,j) = 0.5*trAB(halfQ{i}, halfQ{j});
-        Q(j,i) = Q(i,j);
-    end
-end
-
 
 timeTakenCheck = toc(timeTakenStart);
 
+fprintf(['\n','Q matrix computation done. \n'])
+
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,'s\n'])
+
 
 %% COLLECTION OF INPUTS %%
 
@@ -330,14 +326,14 @@ tStepStart = tic;
 cStar = retinalWidth/(100*Delta);
 % cStar = retinalWidth/(Tf);
 
-cMax = 2*cStar;   % max wave velocity
-cMin = -2*cStar; % min wave velocity
+cMax = 20*cStar;   % max wave velocity
+cMin = -20*cStar; % min wave velocity
 % cMin = 0; % min wave velocity
 
 kMax = 2*pi/retinalWidth*(dn-1)/2;   % max wave number
 kMin = 2*pi/(retinalWidth);   % min wave number
 
-cN = 31;
+cN = 51;
 kN = 30;
 
 [controls1DWave, inputParameters1Dwave] = generate1DPlaneWaveControls(dn, N, Delta, Tf, retinalWidth, cMin, cMax, cN, kMin, kMax, kN);
@@ -347,22 +343,20 @@ if addRandomInputs % produce random inputs if asked
 end
 
 
-
 % Concatenate inputs and constant input.
-
 if addRandomInputs 
     counter = length(controls1DWave) + length(controlsRandom) + 1;
-    inputParameters = [inputParameters1Dwave,inputParametersRandom,[NaN;0]];
+    inputParameters = [inputParameters1Dwave, inputParametersRandom, [NaN;0]];
     controls = cell(counter,1);
-    controls(1:end-1) = [controls1DWave;controlsRandom];
+    controls(1:end-1) = [controls1DWave; controlsRandom];
 else
     counter = length(controls1DWave) + 1;
-    inputParameters = [inputParameters1Dwave,[NaN;0]];
+    inputParameters = [inputParameters1Dwave,  [NaN;0]];
     controls = cell(counter,1);
     controls(1:end-1) = controls1DWave;
 end
 
-% 
+%
 
 controls{counter} = ones(m, N); % Constant input at the end
 
@@ -389,19 +383,20 @@ M = cell(K, 1);
 
 tStepStart = tic;
 
+Mi = zeros(p,p);
+Hju = zeros(N*q, p);
+SBiHju = zeros(N*q, p);
+
+%%
 for i = 1:K
     u = controls{i};
     u = u(:);
-    Mi = zeros(p,p);
-    L2u = max(1/Tf*(u'*u)/N, 0.000001);
-    u = u/sqrt(L2u);
-    
-    Hju = zeros(N*q, p);
-    SBiHju = zeros(N*q, p);
+    %L2u = max(1/Tf*(u'*u)/N, 0.000001);
+    %u = u/sqrt(L2u);
 
     for j = 1:p
         Hju(:,j) = Hb{j} * u;
-        SBiHju(:,j) = SigmaBoldinv * Hju(:,j);
+        SBiHju(:,j) = SigmaBoldInv * Hju(:,j);
     end
 
     for j = 1:p
@@ -412,7 +407,7 @@ for i = 1:K
         end
     end
 
-    M{i} = Mi/(N*q); % Rescale of final Fisher information matrix in order to account for influece of N and q
+    M{i} = Mi/(N*q); % Rescale of final Fisher information matrix in order to account for influence of N and q
     
     if mod(i,floor(K/10))==0
         fprintf(['Progress:  %3.0f%% '],ceil(100*i/K))
@@ -421,6 +416,7 @@ for i = 1:K
         tStepStart = tic;
     end
 end
+
 
 
 tStepEnd = toc(tStepStart);
@@ -466,10 +462,15 @@ Mnew = Mold;
 
 %%% Exploration loop
 
-maxStepSearch = 1000; % Max number of loops
+maxStepSearch = 10000; % Max number of loops
 i = 0;
 improvementThreshold = 10^(-8);
 improvement = 1;
+
+maxDerThreshold = 1;
+maxDer = Inf;
+
+tSearchStart = tic;
 
 while (i < maxStepSearch) && (improvement > improvementThreshold)
     
@@ -482,8 +483,10 @@ while (i < maxStepSearch) && (improvement > improvementThreshold)
 
     maxDer = -Inf;
     maxDerIndex = 0;
+    MoldInv = Mold\eye(p);
+
     for k = 1:K                     
-        der = trAB(inv(Mold), M{k});
+        der = trAB(MoldInv, M{k});
         if maxDer < der
             maxDer = der;
             maxDerIndex = k;
@@ -525,14 +528,20 @@ while (i < maxStepSearch) && (improvement > improvementThreshold)
     
 
     improvement = (logdet(Mnew)-logdet(Mold))/abs(logdet(Mold));
-    
+
     if mod(i,10) == 0 
-        fprintf(['Step of search : ', num2str(i), ', score improvement : ', num2str(improvement), '\n'])
+        fprintf(['Step of search : ', num2str(i), ', score improvement: ', num2str(improvement), '\n'])
     end
 
+    
+    % if mod(i,100) == 0 
+    %     fprintf(['Step of search : ', num2str(i), ', max derivative: ', num2str(maxDer), ', index: ',num2str(maxDerIndex),'\n'])
+    % end
 end
 
+tSearchTaken = toc(tSearchStart);
 
+fprintf(['\n','Search time: ', num2str(tSearchTaken,3) ,'s \n'])
 
 fprintf(['Max score of a matrix : ', num2str(maxScore), '\n'])
 
@@ -541,21 +550,30 @@ fprintf(['Final score : ', num2str(logdet(Mnew)), '\n'])
 fprintf(['Score of averaged matrix : ', num2str(logdet(Minit)), '\n'])
 
 
+if addRandomInputs
+    wRand = 1/nbrRandomInputs;
+    Mrand = zeros(p,p);
+    for k = K-1:-1:K-1-nbrRandomInputs
+        Mrand = Mrand + wRand * M{k};
+    end
+    fprintf(['Score of random inputs : ', num2str(logdet(Mrand)), '\n'])
+end
+
+
 threshold = 0.01;
 
 idx = find(abs(wnew) > threshold);
-
 
 timeTakenCheck = toc(timeTakenStart);
 
 fprintf(['\n','Total computation time: ', num2str(timeTakenCheck,3) ,'s (',num2str(floor(timeTakenCheck/60)),' min ',num2str(mod(timeTakenCheck,60),2),'s)\n'])
 
 
-%% Animate the input
+%% ANIMATE THE INPUTS %%
 
 figure(1)
 clf
-pause(1)
+pause(.5)
 
 % Define spatial domain
 
@@ -587,37 +605,41 @@ for l=1:N
             " \times c^*, k = " + info{k,3} + " \times k^*")
         
     end
-    drawnow
+    drawnow nocallbacks
     pause(0.001)
 end
 
 
 
 
-%% Animate based on luminosity
+%% ANIMATE THE INPUTS BASED ON LUMINOSITY %%
 
 figure(2)
 clf
-pause(1)
+pause(.5)
 
 
 
 lidx = length(idx);
 info = cell(lidx,3);
 for k=1:length(idx)
+
     info{k,1} = num2str(wnew(idx(k)));
     info{k,2} = num2str(inputParameters(1,idx(k))/cStar);
     info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
+
 end
 
 for l=1:N
+
     for k=1:length(idx)
+
         subplot(length(idx),1,k)
         control_plot = controls{idx(k)};
 
         % Piecewise constant plot using stairs
         %
-        imagesc(control_plot(:,l)',[0,2])
+        imagesc(control_plot(:,l)',[0,1])
         colormap(gray); 
         axis image;
         
@@ -628,66 +650,73 @@ for l=1:N
             " \times c^*, k = " + info{k,3} + " \times k^*")
         
     end
-    drawnow
+    
+    drawnow nocallbacks
     pause(0.001)
 
 end
 
-%% Create animated gif %%
 
-% --- GIF parameters ---
 
-date_present = datetime('now','Format','yyyy-MM-dd_HH-mm');
-s = char(date_present);
 
-gifname   = ['video_output/Optimal_inputs_1D_',s,'.gif'];
-delayTime = 0.05;   % seconds between frames
-firstFrame = true;
 
-if exist(gifname, 'file')
-    delete(gifname)
+%% CREATE ANIMATED GIF %%
+
+if createAnimatedGIF
+
+    % --- GIF parameters ---
+    
+    datePresent = datetime('now','Format','yyyy-MM-dd_HH-mm');
+    s = char(datePresent);
+    
+    gifname   = ['videoOutput/Optimal_inputs_1D_',s,'.gif'];
+    delayTime = 0.05;   % seconds between frames
+    firstFrame = true;
+    
+    if exist(gifname, 'file')
+        delete(gifname)
+    end
+    
+    
+    % --- Figure setup ---
+    
+    fig = figure(3); 
+    clf(fig,'reset') 
+    set(gcf,'Position',[100 100 600 (length(idx)*100)])
+    
+    for l = 1:N
+    
+        for k = 1:length(idx)
+            subplot(length(idx),1,k)
+            control_plot = controls{idx(k)};
+    
+            imagesc(control_plot(:,l)', [0,1])
+            colormap(gray)
+            axis image
+    
+            xlabel('Position (pxl)')
+            title("weight = " + info{k,1} + ...
+                  ", c = " + info{k,2} + ...
+                  " \times c^*, k = " + info{k,3} + " \times k^*")
+        end
+    
+        drawnow
+    
+        % --- Capture one frame per l ---
+        frame = getframe(gcf);
+        im = frame2im(frame);
+        [A,map] = rgb2ind(im,256);
+    
+        if firstFrame
+            imwrite(A, map, gifname, 'gif', ...
+                    'LoopCount', Inf, ...
+                    'DelayTime', delayTime);
+            firstFrame = false;
+        else
+            imwrite(A, map, gifname, 'gif', ...
+                    'WriteMode', 'append', ...
+                    'DelayTime', delayTime);
+        end
+    end
 end
 
-
-% --- Figure setup ---
-
-figure(3); 
-clf(3,'reset') 
-set(gcf,'Position',[100 100 600 (length(idx)*100)])
-
-for l = 1:N
-
-    clf(3)   % clear figure at each l
-
-    for k = 1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-
-        imagesc(control_plot(:,l)', [0,2])
-        colormap(gray)
-        axis image
-
-        xlabel('Position (pxl)')
-        title("weight = " + info{k,1} + ...
-              ", c = " + info{k,2} + ...
-              " \times c^*, k = " + info{k,3} + " \times k^*")
-    end
-
-    drawnow
-
-    % --- Capture one frame per l ---
-    frame = getframe(gcf);
-    im = frame2im(frame);
-    [A,map] = rgb2ind(im,256);
-
-    if firstFrame
-        imwrite(A, map, gifname, 'gif', ...
-                'LoopCount', Inf, ...
-                'DelayTime', delayTime);
-        firstFrame = false;
-    else
-        imwrite(A, map, gifname, 'gif', ...
-                'WriteMode', 'append', ...
-                'DelayTime', delayTime);
-    end
-end

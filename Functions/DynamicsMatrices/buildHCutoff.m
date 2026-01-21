@@ -11,12 +11,12 @@ function H = buildHCutoff(C, F, G, N, depth)
 % Output:
 %   H - Block lower triangular matrix with band structure
 
-n = size(C,2);
 q = size(C,1);
 m = size(G,2);
 
 % Precompute C*F^k*G for k=0 to min(N-1, depth)
 % We only need up to depth terms since blocks further from diagonal are zero
+
 maxK = min(N-1, depth);
 CFkG = cell(maxK + 1, 1);
 dHk = eye(size(F));
@@ -33,6 +33,7 @@ H = zeros(N*q, N*m);
 % For column block j (corresponding to time step j), 
 % we fill row blocks i where i >= j and i - j <= depth
 for j = 1:N
+    
     iMin = j;  % Lower triangular: i >= j
     iMax = min(N, j + depth);  % Only within depth
     

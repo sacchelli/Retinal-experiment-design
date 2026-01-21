@@ -166,9 +166,9 @@ fprintf('Total inputs: %d\n', K)
 
 % controlID = randi(K);
 controlID = 1;
-theta = 5*pi/4; % wave direction of propagation
-c = cStar; % wave velocity
-kNumber = 2; % wave number
+theta = 1.18*pi; % wave direction of propagation
+c = 13*cStar; % wave velocity
+kNumber = 5; % wave number
 
 control_temp2D = zeros(sdn,sdn);
 control_temp1D = zeros(sdn*sdn, N);

@@ -51,7 +51,7 @@ for ic = 1:cN
             t = (it-1) * Delta;
             for ix = 1:dn
                 x = (ix-1) * dx;  % Start at x=0
-                control_temp(ix, it) = 1 + cos(kNumber*x - c*kNumber*t);
+                control_temp(ix, it) = 0.5*(1 + cos(kNumber*x - c*kNumber*t));
             end
         end
         

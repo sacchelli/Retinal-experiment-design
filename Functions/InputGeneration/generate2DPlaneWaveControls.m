@@ -60,7 +60,7 @@ for itheta = 1:thetaN
                     x = (ix-1) * dx;  % Start at x=0
                     for iy = 1:sdn
                         y = (iy-1) * dx; % Start at y=0
-                        control_temp2D(iy, ix) = 1 + cos(kNumber*(cos(theta)*x + sin(theta)*y) - c*kNumber*t); % Careful about the position (iy,ix) to be consistent with the column-major ordering
+                        control_temp2D(iy, ix) = 0.5*(1 + cos(kNumber*(cos(theta)*x + sin(theta)*y) - c*kNumber*t)); % Careful about the position (iy,ix) to be consistent with the column-major ordering
                     end 
                 end
                 control_temp1D(:,it) = control_temp2D(:);

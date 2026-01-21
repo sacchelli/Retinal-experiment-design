@@ -1,0 +1,364 @@
+%%% Useful Macros %%%
+\newcommand{\Sec}[2]{\section{#1\label{Sec:#2}}}
+\newcommand{\sSec}[2]{\subsection{#1 \label{Sec:#2}}}
+\newcommand{\ssSec}[2]{\subsubsection{#1 \label{Sec:#2}}}
+
+\newcommand{\setZ}{\m, whileathbbm{Z}}
+\newcommand{\setR}{\mathbbm{R}}
+\newcommand{\deq}{\stackrel {\rm def}{=}}
+\newcommand{\Prior}[1]{{\textcolor{red}{PRIORITE: \textbf{#1}]}}}
+
+\newcommand{\mycaption}[2]{\caption{\textbf{#1}{ #2}}}
+%\newcommand{\ang}[2]{\widehat{\pare{\vec{#1},\vec{#2}}}}
+\newcommand{\conv}[1]{\stackrel{#1}{\ast}}
+\newcommand{\pare}[1]{\left(\, #1 \, \right)}
+\newcommand{\brk}[1]{\langle\, #1  \, \rangle}
+\newcommand{\scal}[2]{\langle\, #1 | #2 \, \rangle}
+\newcommand{\bra}[1]{\left[\, #1 \, \right]}
+\newcommand{\abs}[1]{\left|\, #1 \, \right|}
+\newcommand{\brac}[2]{\left[\, #1 \, | \, #2 \right]}
+\newcommand{\Set}[1]{\left\{\, #1 \, \right\}}
+\newcommand{\Setc}[2]{\left\{\, #1 \, ; \, #2 \right\}}
+\newcommand{\vect}[1]{\pare{\begin{array}{ccc}#1\end{array}}}
+\newcommand{\ve}{\vec{e}}
+%\newcommand{\vv}{\vec{v}}
+\newcommand{\vv}{\bold{v}}
+\newcommand{\vs}{\bold{s}}
+\newcommand{\vy}{\bold{y}}
+\newcommand{\tvv}{\bold{v}^T}
+\newcommand{\vx}{\vec{x}}
+\newcommand{\vB}{\bold{B}}
+%\newcommand{\vB}{\vec{B}}
+\newcommand{\vD}{\bold{D}}
+%\newcommand{\vD}{\vec{D}}
+\newcommand{\vF}{\bold{F}}
+%\newcommand{\vF}{\vec{F}}
+\newcommand{\vf}{\bold{f}}
+%\newcommand{\vf}{\vec{f}}
+\newcommand{\vN}{\bold{N}}
+%\newcommand{\vN}{\vec{N}}
+\newcommand{\vcF}{\mathbfcal{F}}
+%\newcommand{\vcF}{\vec{\cF}}
+%\newcommand{\vu}{\vec{u}}
+\newcommand{\vu}{\bold{u}}
+%\newcommand{\vZ}{\vec{Z}}
+\newcommand{\vZ}{\bold{Z}}
+%\newcommand{\vX}{\vec{X}}
+\newcommand{\vX}{\bold{X}}
+\newcommand{\vXT}{\bold{X}^T}
+%\newcommand{\vcC}{\vec{\cC}}
+\newcommand{\tvw}{\bold{w}^T}
+\newcommand{\vw}{\bold{w}}
+\newcommand{\vW}{\bold{W}}
+\newcommand{\tP}{\tilde{P}}
+\newcommand{\tX}{\tilde{X}}
+\newcommand{\tY}{\tilde{Y}}
+\newcommand{\vcC}{\vec{\cC}}
+\newcommand{\vcR}{\vec{\cR}}
+\newcommand{\vcX}{\vec{\cX}}
+\newcommand{\vcXs}{\vec{\cX}^\ast}
+\newcommand{\vgamma}{\vec{\gamma}}
+\newcommand{\vnabla}{\vec{\nabla}}
+\newcommand{\diag}{\mathop{\mathrm{diag}}}
+\newcommand{\lamb}[2]{\lambda^{(#1)}_{#2}}
+\newcommand{\Pp}[2]{\cP^{(#1)}_{#2}}
+\newcommand{\Ppm}[2]{\pare{\cP^{(#1)}_{#2}}^{-1}}
+\newcommand{\CRep}[2]{\varpi_{#1#2}}
+\newcommand{\Om}[1]{\Omega^{(#1)}}
+\newcommand{\Lc}[1]{\cL^{(#1)}}
+\newcommand{\vCc}[1]{\vcC^{(#1)}}
+\newcommand{\vXx}[1]{\vcX^{(#1)}}
+\newcommand{\vFf}[1]{\vcF^{(#1)}}
+\newcommand{\tOm}[2]{t^{(#1)}_{#2}}
+\newcommand{\ee}[2]{e_{#1}^{(#2)}}
+\newcommand{\Flow}[1]{\Phi^{(#1)}}
+
+\newcommand{\Prob}[1]{\mathds{P}\bra{#1}}
+\newcommand{\Exp}[2]{\mathds{E}_{#1}\bra{#2}}
+\newcommand{\Cell}[2]{{#1}_{#2}} %Cell type, cell index
+\newcommand{\A}[2]{a_{\Cell{#1}{#2}}} %Cell activity
+\newcommand{\V}[2]{V_{\Cell{#1}{#2}}} %Voltage Cell type, cell index
+\renewcommand{\l}[2]{\nu_{\Cell{#1}{#2}}} %Frequency type, cell index
+\newcommand{\Ce}[2]{C_{\Cell{#1}{#2}}} %Capacity type, cell index
+\newcommand{\n}[2]{n^{#1}_{#2}} %Capacity type, cell index
+\newcommand{\K}[2]{\cK_{\Cell{#1}{#2}}} %Kernel Cell type, cell index
+\newcommand{\KS}[2]{\cK_{\Cell{#1}{#2},S}}  %Kernel Cell type, cell index
+\newcommand{\KT}[2]{\cK_{\Cell{#1}{#2},T}}  %Kernel Cell type, cell index
+\newcommand{\Vd}[2]{V^2_{\Cell{#1}{#2}}}
+\newcommand{\E}[3]{\cE^{(#1)}_{\Cell{#2}{#3}}}
+\newcommand{\hE}[3]{\hcE^{(#1)}_{\Cell{#2}{#3}}}
+\newcommand{\Vdr}[3]{\cV^{(#1)}_{\Cell{#2}{#3}}}
+\newcommand{\vVdr}[3]{\vec{\cV}^{(#1)}_{\Cell{#2}{#3}}}
+\newcommand{\F}[2]{F_{\Cell{#1}{#2}}}
+\newcommand{\z}[2]{\zeta_{\Cell{#1}{#2}}}
+\newcommand{\g}[2]{g_{CNO_{\Cell{#1}{#2}}}}
+\newcommand{\N}[1]{\cN^{(#1)}}
+\newcommand{\R}[2]{R_{\Cell{#1}{#2}}}
+\newcommand{\Co}[4]{\Gamma^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\pr}[4]{\Pi^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\W}[4]{W^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\Wp}[4]{W'^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\Di}[2]{D_{#1}^{(#2)}}
+\newcommand{\Dip}[2]{D_{#1}^{'(#2)}}
+\newcommand{\Gp}[4]{G^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\gp}[4]{g^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\alp}[2]{\alpha^{#1}_{#2}}
+\renewcommand{\t}[2]{\tau^{#1}_{#2}}
+\newcommand{\Ps}[4]{P^{\Cell{#1}{#2}}_{\Cell{#3}{#4}}}
+\newcommand{\Amp}[2]{w^{#1}_{#2}}
+\newcommand{\sig}[2]{\sigma^{#1}_{#2}}
+\newcommand{\Ist}[2]{I^{(c)}_{\Cell{#1}{#2}}}
+\newcommand{\Pst}[2]{P^{(c)}_{\Cell{#1}{#2}}}
+\newcommand{\Gap}[2]{P^{(g)}_{\Cell{#1}{#2}}}
+\newcommand{\IG}[2]{I^{(g)}_{\Cell{#1}{#2}}}
+\newcommand{\D}[4]{d\bra{\Cell{#1}{#2}, \, \Cell{#3}{#4}}}
+\newcommand{\Dd}[4]{d^2\bra{\Cell{#1}{#2}, \, \Cell{#3}{#4}}}
+\newcommand{\cA}{{\mathcal A}}
+\newcommand{\cB}{{\mathcal B}}
+\newcommand{\cC}{{\mathcal C}}
+\newcommand{\cD}{{\mathcal D}}
+\newcommand{\cE}{{\mathcal E}}
+\newcommand{\hcE}{{\hat{\mathcal E}}}
+\newcommand{\cG}{{\mathcal G}}
+\newcommand{\cK}{{\mathcal K}}
+\newcommand{\cH}{{\mathcal H}}
+\newcommand{\cI}{{\mathcal I}}
+\newcommand{\cL}{{\mathcal L}}
+\newcommand{\cLT}{{\mathcal L}^T}
+\newcommand{\tcL}{\tilde{\cL}}
+\newcommand{\cM}{{\mathcal M}}
+\newcommand{\cN}{{\mathcal N}}
+\newcommand{\cP}{{\mathcal P}}
+\newcommand{\hcP}{\hat{\mathcal P}}
+\newcommand{\pP}{{\mathbb P}}
+\newcommand{\cQ}{{\mathcal Q}}
+\newcommand{\cO}{{\mathcal O}}
+\newcommand{\tcP}{\tilde{\cP}}
+\newcommand{\cR}{{\mathcal R}}
+\newcommand{\cS}{{\mathcal S}}
+\newcommand{\cF}{{\mathcal F}}
+\newcommand{\cX}{{\mathcal X}}
+\newcommand{\cU}{{\mathcal U}}
+\newcommand{\cV}{{\mathcal V}}
+\newcommand{\cT}{{\mathcal T}}
+\newcommand{\cTm}{{\mathcal T}^{-1}}
+\newcommand{\cW}{{\mathcal W}}
+\newcommand{\fA}{\mathfrak{A}}
+\newcommand{\fB}{\mathfrak{B}}
+\newcommand{\fG}{\mathfrak{G}}
+\newcommand{\vzA}{\vec{\zeta}_A}
+%\newcommand{\veta}{\vec{\eta}}
+\newcommand{\veta}{\boldsymbol{\eta}}
+\newcommand{\vz}{\vec{0}}
+\newcommand{\vU}{\bold{U}}
+\newcommand{\vun}{\vec{1}_N}
+\newcommand{\vzG}{\vec{\zeta}_G}
+%\newcommand{\vxi}{\vec{\xi}}
+\newcommand{\veps}{\boldsymbol{\epsilon}}
+\newcommand{\vxi}{\boldsymbol{\xi}}
+\newcommand{\vxiT}{\boldsymbol{\xi}^T}
+\newcommand{\vth}{\boldsymbol{\theta}}
+\newcommand{\vtha}{\boldsymbol{\theta}^\ast}
+\newcommand{\vcP}{\vec{\cP}}
+\newcommand{\vpP}{\vec{\pP}}
+\newcommand{\vcQ}{\vec{\cQ}}
+\newcommand{\vm}{\vec{m}}
+\newcommand{\vk}{\vec{k}}
+\newcommand{\vV}{\vec{V}}
+\newcommand{\vVA}{\vV_\fA}
+\newcommand{\vVG}{\vV_\fG}
+\newcommand{\VAa}{V_{\fA,a}}
+\newcommand{\vVB}{\vV_\fB}
+\newcommand{\VBa}{V_{\fB,\alpha}}
+\newcommand{\vA}{\vec{A}}
+\newcommand{\ket}[1]{|#1 \rangle}
+\newcommand{\Ket}[2]{|#1_#2 \rangle}
+\newcommand{\Bra}[2]{\langle #1_#2|}
+\newcommand{\Proj}[2]{|#1_#2\rangle \langle #1_#2|}
+\newcommand{\Scal}[4]{\langle #1_#2|#3_#4\rangle}
+\newcommand{\vphi}{\vec{\phi}}
+\newcommand{\kphi}[1]{\Ket{\phi}{#1}}
+\newcommand{\bphi}[1]{\Bra{\phi}{#1}}
+\newcommand{\vpsi}{\vec{\psi}}
+\newcommand{\vPhi}{\vec{\Phi}}
+\newcommand{\kpsi}[1]{\Ket{\psi}{#1}}
+\newcommand{\bpsi}[1]{\Bra{\psi}{#1}}
+\newcommand{\Hh}[2]{\cH^{#1}_{#2}}
+
+\newcommand\bloc[2]{{\omega}_{#1}^{#2}}
+\newcommand\blocp[2]{{\omega'}_{#1}^{#2}}
+\newcommand\sif[1]{\seq{\omega}{-\infty}{#1}}
+\newcommand{\Pnc}[2]{\mathds{P}_n\bra{#1 \, \left| \, #2 \right.}}
+\newcommand\seq[3]{{#1}_{#2}^{#3}}
+\newcommand{\probc}{\mathds{P}}
+\newcommand{\Probc}[2]{\mathds{P}\bra{#1 \, \left| \, #2 \right.}}
+\newcommand\moy[1]{\mu\bra{#1}}
+\newcommand\moysp[1]{\mu^{(sp)}\bra{#1}}
+\newcommand\musp{\mu^{(sp)}}
+\newcommand{\ent}[1]{\left[\, #1 \, \right]}
+\newcommand\gk[1]{g_k\pare{#1}}
+\newcommand\Csp[2]{\mathcal{C}^{(sp)}\bra{#1, #2}}
+\newcommand\sk[1]{\sigma_k({#1})}
+\newcommand\sj[1]{\sigma_j({#1})}
+\newcommand\nkrm{\tau_k(r-1,.)}
+
+\newcommand{\re}[1]{Re\pare{#1}}
+\newcommand{\im}[1]{Im\pare{#1}}
+
+%__________________________________________
+% newcommands Luc
+%__________________________________________
+
+\newcommand{\bea}{\begin{eqnarray*}}
+\newcommand{\eea}{\end{eqnarray*}}
+\newcommand{\beq}{\begin{eqnarray}}
+\newcommand{\eeq}{\end{eqnarray}}
+
+
+
+\def\rad{\stackrel{\rm d}{\ra}}
+
+%\input{defpera.tex}
+\def\dd{\mathrm{d}}
+\def\arg{\mathrm{arg}}
+\def\Arg{\mathrm{Arg}}
+\def\dim{\mathrm{dim}}
+\def\diag{\mathrm{diag}}
+\def\diam{\mathrm{diam}}
+\def\Pr{\mathrm{Prob}}
+\def\mp{\partial}
+\def\rank{\mathrm{rank}}
+\def\tr{\mathrm{trace}}
+\def\vol{\mathrm{vol}}
+
+\def\mt{\theta}
+
+\def\Ex{\mathsf{E}}
+\def\Var{\mathsf{Var}}
+\def\var{\mathsf{var}}
+
+\def\tDelta{\widetilde{\Delta}}
+\def\bDelta{\overline{\Delta}}
+
+\def\ma{\alpha}
+\def\mg{\gamma}
+\def\ml{\lambda}
+\def\mL{\Lambda}
+\def\mt{\theta}
+\def\mth{\hat\theta}
+\def\me{\epsilon}
+\def\mve{\varepsilon}
+\def\mdb{\boldsymbol{\delta}}
+\def\ms{\sigma}
+%\def\Ex{{\rm I}\!{\rm E}}
+%\def\Ex{\mathbb{E}}
+
+\def\ra{\rightarrow}
+\def\TT{^\top}
+\def\e1{\mathsf{e}}
+
+\def\Ab{\mathbf{A}}
+\def\Db{\mathbf{D}}
+\def\bDb{\overline{\mathbf{D}}}
+\def\Eb{\mathbf{E}}
+\def\Fb{\mathbf{F}}
+\def\Gb{\mathbf{G}}
+\def\Hb{\mathbf{H}}
+\def\Ib{\mathbf{I}}
+\def\Jb{\mathbf{J}}
+\def\Kb{\mathbf{K}}
+\def\bK{\overline{K}}
+\def\bKb{\overline{\mathbf{K}}}
+\def\bmOb{\overline{\boldsymbol{\Omega}}}
+\def\bmGb{\overline{\boldsymbol{\Gamma}}}
+\def\mob{\boldsymbol{\omega}}
+\def\bmob{\overline{\boldsymbol{\omega}}}
+\def\tK{\widetilde{K}}
+\def\tKb{\widetilde{\mathbf{K}}}
+\def\Mb{\mathbf{M}}
+\def\bMb{\overline{\mathbf{M}}}
+\def\Ob{\mathbf{O}}
+\def\Qb{\mathbf{Q}}
+\def\Rb{\mathbf{R}}
+\def\Sb{\mathbf{S}}
+\def\Tb{\mathbf{T}}
+\def\Xb{\mathbf{X}}
+\def\Vb{\mathbf{V}}
+\def\Zb{\mathbf{Z}}
+\def\Wb{\mathbf{W}}
+\def\mLb{\boldsymbol{\Lambda}}
+\def\mOb{\boldsymbol{\Omega}}
+\def\Phib{\boldsymbol{\Phi}}
+\def\Sigmab{\boldsymbol{\Sigma}}
+
+\def\1b{\mathbf{1}}
+\def\0b{\mathbf{0}}
+\def\bb{\mathbf{b}}
+\def\cb{\mathbf{c}}
+\def\Cb{\mathbf{C}}
+\def\db{\mathbf{d}}
+\def\eb{\mathbf{e}}
+\def\fb{\mathbf{f}}
+\def\gb{\mathbf{g}}
+\def\hb{\mathbf{h}}
+\def\kb{\mathbf{k}}
+\def\pb{\mathbf{p}}
+\def\qb{\mathbf{q}}
+\def\rb{\mathbf{r}}
+\def\tb{\mathbf{t}}
+\def\ub{\mathbf{u}}
+\def\vb{\mathbf{v}}
+\def\wb{\mathbf{w}}
+\def\xb{\mathbf{x}}
+\def\yb{\mathbf{y}}
+\def\Yb{\mathbf{Y}}
+\def\zb{\mathbf{z}}
+\def\alphab{\boldsymbol{\alpha}}
+\def\betab{\boldsymbol{\beta}}
+\def\gammab{\boldsymbol{\gamma}}
+\def\etab{\boldsymbol{\eta}}
+\def\phib{\boldsymbol{\phi}}
+\def\taub{\boldsymbol{\tau}}
+\def\mveb{\boldsymbol{\varepsilon}}
+\def\mtb{\boldsymbol{\theta}}
+\def\zetab{\boldsymbol{\zeta}}
+
+\def\SA{{\mathscr A}}
+\def\SB{{\mathscr B}}
+\def\SE{{\mathscr E}}
+\def\SF{\mathcal{F}}
+\def\SSF{\mathscr{F}}
+\def\SH{\mathcal{H}}
+\def\SSL{\mathds{L}}
+\def\SM{{\mathscr M}}
+\def\SN{{\mathscr N}}
+\def\SO{\mathcal{O}}
+\def\SP{{\mathscr P}}
+\def\SU{{\mathscr U}}
+\def\SS{{\mathscr S}}
+\def\ST{{\mathscr T}}
+\def\SX{{\mathscr X}}
+
+
+
+
+\newcommand{\fin}{\mbox{}~\hfill\mbox{$\lhd$}}
+\newcommand{\carre}{\mbox{}~\hfill\rule{2mm}{2mm}}
+
+
+\newtheorem{rmk}{Remark}
+\newtheorem{defi}{Definition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary} %Ludovic
+\newtheorem{example}{Example}
+%\newdefinition{lemma}{Lemma}
+%\newtheorem{propo}{Proposition}
+
+\newcommand{\vsp}{\vspace{0.3cm}}
+\newcommand{\lline}{\rule{10cm}{0.2mm}}
+
+
+
+
+

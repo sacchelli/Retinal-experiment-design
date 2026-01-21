@@ -15,7 +15,7 @@ function [controls, inputParameters] = generate2DRandomControls(sdn, N, K, seed)
 
 
 minValue = 0;
-maxValue = 2;
+maxValue = 1;
 
 
 rng(seed);

@@ -1,77 +1,45 @@
 function SigmaBold = buildSigmaBold(C1, C2, F, Sigma, Sigmap, N)
-% Careful that this is meant to work with C1 and C2, so if I have only C,
-% I need C1=C, C2=C/2 or vice versa.
+% BUILDSIGMABOLD Constructs the symmetric block Toeplitz output covariance matrix
 %
+% This function builds the full covariance matrix SigmaBold for a sequence 
+% of N outputs. It uses a dual-matrix formulation (C1, C2) to compute the 
+% cross-covariance blocks and incorporates observation noise (Sigmap).
+%
+% Note: To represent the standard output covariance C*Sigma*C', this function 
+% expects C1 = C and C2 = C/2 (or vice versa) such that the sum of 
+% cross-products (C1*X*C2' + C2*X*C1') reconstructs C*X*C'.
+%
+% Inputs:
+%   C1     - First observation matrix (q x n)
+%   C2     - Second observation matrix (q x n), typically C1/2
+%   F      - Discrete-time state transition matrix (n x n)
+%   Sigma  - State covariance matrix (n x n)
+%   Sigmap - Observation noise covariance matrix (q x q)
+%   N      - Number of time steps (horizon)
+%
+% Output:
+%   SigmaBold - Symmetric block Toeplitz output covariance matrix (N*q x N*q)
+
 
 n = size(F,1);
 q = size(C1,1);
 
 
-C1Fpowers = cell(N, 1);
-C2Fpowers = cell(N, 1);
 
-C1Fk = C1;
-C2Fk = C2;
-C1Fpowers{1} = C1Fk;
-C2Fpowers{1} = C2Fk;
-
-for i = 2:N
-    C1Fk = C1Fk * F;
-    C2Fk = C2Fk * F;
-    C1Fpowers{i} = C1Fk;
-    C2Fpowers{i} = C2Fk;
+dSigmak = Sigma;
+col = zeros(N*q,q);
+col(1:q,:) = (C1*dSigmak*C2'+C2*dSigmak*C1'+Sigmap)/2;
+for i=2:N
+    dSigmak=F*dSigmak;
+    col((i-1)*q+1:i*q,:)=(C1*dSigmak*C2'+C2*dSigmak*C1');
 end
 
+mat = zeros(N*q,N*q);
 
-% After computing C1Fpowers and C2Fpowers, precompute products with Sigma
-
-C1FpowersSigma = cell(N, 1);
-C2FpowersSigma = cell(N, 1);
-
-for i = 1:N
-    C1FpowersSigma{i} = C1Fpowers{i} * Sigma;
-    C2FpowersSigma{i} = C2Fpowers{i} * Sigma;
+for i=1:N
+    mat((i-1)*q+1:end,(i-1)*q+1:i*q) = col(1:(N-i+1)*q,:);
 end
 
-
-% presum{k,l} stores all q×q matrices for time k,l
-
-presum = cell(N, N);
-for k = 1:N    
-    for l = 1:k
-        presum{k,l} = C1FpowersSigma{k} * C2Fpowers{l}' + ...
-                        C2FpowersSigma{k} * C1Fpowers{l}';
-    end
-end
-
-
-
-SigmaAux = zeros(q*N, q*N);
-
-
-elements = cell(N,N);
-
-for k = 1:N
-    elements{k,1} = presum{k,1};
-end
-
-for l = 2:N
-    for k = l:N
-        elements{k,l} = elements{k-1,l-1} + presum{k,l};
-    end
-end
-
-
-for l = 1:N
-    SigmaAux((l-1)*q+1:l*q,(l-1)*q+1:l*q) = elements{l,l} + Sigmap;
-    for k = l+1:N
-        SigmaAux((k-1)*q+1:k*q,(l-1)*q+1:l*q) = elements{k,l};
-        
-        SigmaAux((l-1)*q+1:l*q,(k-1)*q+1:k*q) = (elements{k,l})';
-    end
-end
-
-
-SigmaBold = SigmaAux;
+SigmaBold=mat+mat';
 
 end

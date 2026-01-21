@@ -17,7 +17,7 @@ if nargin < 2
 end
 
 useAbs = getfield_default(options, 'useAbs', true);
-logScale = getfield_default(options, 'logScale', false);
+logScale = getfield_default(options, 'logScale', true);
 titleStr = getfield_default(options, 'title', 'Max value on each diagonal');
 
 n = size(A, 1);
