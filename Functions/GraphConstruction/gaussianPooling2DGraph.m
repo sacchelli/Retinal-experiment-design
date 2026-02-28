@@ -37,11 +37,5 @@ for k = 1:dn^2
     end
 end
 
-
-% %%% Potential short but less explainable alternative:
-% M1D = gaussianPooling1DGraph(dn, delta, sigma);
-% 
-% % The 2D Gaussian kernel on a grid is the Kronecker product
-% Mbis = kron(M1D, M1D);
-
+M = M/(2*pi*sigma^2);
 end

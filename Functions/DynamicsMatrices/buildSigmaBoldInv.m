@@ -79,8 +79,23 @@ end
 
 %% Compute D_i blocks (diagonal blocks of T^{-1})
 D = cell(N, 1);
-D{1} = inv(Ablks{1} - Bblk * S{1}');
-for i = 1:N-2
+
+% D{1} = (Ablks{1} - Bblk * S{1}')\eye(n); % There seem to be some
+% regularity issues around this inversion. So we experiment with
+% regularization.
+
+TermToInvert = Ablks{1} - Bblk * S{1}';
+
+% Regularization based on the average scale of the matrix elements
+% reg_scale = trace(abs(TermToInvert)) / n; 
+% epsilon = reg_scale * 1e-12; % Adjust 1e-12 based on precision needs
+epsilon = 0; % no regularization.
+
+D{1} = (TermToInvert + epsilon * eye(n)) \ eye(n);
+
+D{2} = BblkInv * S{1} * (eye(n) + Bblk' * ((TermToInvert ) \ S{1}));
+
+for i = 2:N-2
     %D{i+1} = (A_blocks{i+1} - B_block * S{i+1}') \ (eye(n) + B_block' * (D{i} * S{i}));
     D{i+1} = BblkInv * S{i} * (eye(n) + Bblk' * (D{i} * S{i}));
 end

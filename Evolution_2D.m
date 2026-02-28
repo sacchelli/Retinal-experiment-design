@@ -98,11 +98,11 @@ for top = 1:4
     Acell{2} = [zz , zz, zz ; zz, -id, zz ; zz, zz, zz];
     Acell{3} = [zz , zz, zz ; zz, zz, zz ; zz, zz, -id];
     
-    Acell{4} = [zz , -Gamma, zz ; zz, zz, zz ; zz, zz, zz];
+    Acell{4} = [zz , - Gamma, zz ; zz, zz, zz ; zz, zz, zz];
     Acell{5} = [zz , zz, zz ; Gamma, zz, zz ; zz, zz, zz];
     
     Acell{6} = [zz , zz, zz ; zz, zz, zz ; GammaBG, zz, zz];
-    Acell{7} = [zz , zz, zz ; zz, zz, zz ; zz, GammaAG, zz];
+    Acell{7} = [zz , zz, zz ; zz, zz, zz ; zz, - GammaAG, zz];
     
     Acell{8} = 1/tauB*Acell{1} + 1/tauA*Acell{2} + 1/tauG*Acell{3} ...
         + wm*Acell{4} + wp*Acell{5} + wBG*Acell{6} + wAG*Acell{7};

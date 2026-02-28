@@ -24,5 +24,5 @@ for i = 1:N-1
     % Fill the diagonals with that scalar
     M = M + diag(M_val*ones(N-i,1), i) + diag(M_val*ones(N-i,1), -i);
 end
-
+M = M/(sqrt(2*pi)*sigma);
 end

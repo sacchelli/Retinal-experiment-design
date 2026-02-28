@@ -18,20 +18,19 @@ q = size(C,1);
 m = size(G,2);
 
 
-dHk = eye(size(F));
+dCHk = C;
 col = zeros(N*q,m);
-col(1:q,:) = C*dHk*G;
+col(1:q,:) = dCHk*G;
 for i=2:N
-    dHk=dHk*F;
-    col((i-1)*q+1:i*q,:)=C*dHk*G;
+    dCHk=dCHk*F;
+    col((i-1)*q+1:i*q,:)=dCHk*G;
 end
 
-mat = zeros(N*q,N*m);
+H = zeros(N*q,N*m);
 
 for i=1:N
-    mat((i-1)*q+1:end,(i-1)*q+1:i*q) = col(1:(N-i+1)*q,:);
+    H((i-1)*q+1:end,(i-1)*m+1:i*m) = col(1:(N-i+1)*q,:);
 end
 
-H=mat;
 
 end
