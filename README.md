@@ -90,3 +90,40 @@ Investigates the performance and sensitivity of the optimal design when the prio
 Comparison of the FIM at the nominal parameter $\theta_0$ and a different value $\theta'$ ($K=100$) for the optimal distribution $\mu^*(\theta_0)$. Left: principal axes of the uncertainty ellipsoid in log-scale; right: standard deviation for each parameter. Blue: D-optimal design; red: random design. Plain line: FIM for the nominal parameter where the optimal design is computed; dashed line: FIM at a perturbation of this nominal value. In this example, we picked at random $\theta'$ such that the relative differences ($(\theta'_i-\theta_i)/\theta_i$) are actually relatively large $(-0.423,   0.280,   -0.061,    0.223,    0.478,    0.038,    0.001)$. Despite this difference, there is still a significant gain between the random and the optimal design, even if it has been designed for a different value of $\theta$.
 
 
+---
+
+## Detailed Experimental Results (1D Case)
+
+This section provides a deeper look into the stochastic simulations and the statistical properties of the estimators for $K=100$ experiments.
+
+### 1. Stochastic Trajectories
+Visual comparison of the system responses under different input designs (left planar wave, right random binary input). The noise level and system dynamics are captured in these trajectories.
+
+<p align="center">
+  <img src="ImagesReadme/optimalTrajectories.svg" width="45%" title="Optimal Trajectories">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="ImagesReadme/randomTrajectories.svg" width="45%" title="Random Trajectories">
+</p>
+
+### 2. Statistical Analysis of Estimators
+Comparison between the **D-optimal design** (optimized) and the **random design** (benchmark).
+
+* **Summary Results:** Comparative table of performance metrics.
+* **Parameter Distributions:** Histograms showing the empirical distribution of the estimated parameters against the theoretical normal distribution.
+* **Scatter Plots:** Pairwise correlations between parameters, illustrating the shape of the confidence ellipsoids.
+
+
+<p align="center">
+  <img src="ImagesReadme/comparisonResults.svg" width="60%" title="Comparison Results">
+</p>
+
+<p align="center">
+  <img src="ImagesReadme/parameterDistributions.svg" width="60%" title="Parameter Distributions">
+</p>
+
+<p align="center">
+  <img src="ImagesReadme/scatterPlots.svg" width="60%" title="Scatter Plots">
+</p>
+
+---
+
