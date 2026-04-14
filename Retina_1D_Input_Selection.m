@@ -64,8 +64,8 @@ nbrRandomInputs = 1000; % must be >0 if addRandomInputs is true.
 
 %%% Should we create an animated gif of the result at the end?
 
-%createAnimatedGIF = true;
-createAnimatedGIF = false;
+createAnimatedGIF = true;
+% createAnimatedGIF = false;
 
 
 %% DYNAMICS CONSTRUCTION
