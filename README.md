@@ -106,7 +106,7 @@ Visual comparison of the system responses under different input designs (left pl
 </p>
 
 ### 2. Statistical Analysis of Estimators
-Comparison between the **D-optimal design** (optimized) and the **random design** (benchmark).
+Comparison between the **D-optimal design** (optimized, in blue) and the **random design** (benchmark, in red).
 
 * **Summary Results:** Comparative table of performance metrics.
 * **Parameter Distributions:** Histograms showing the empirical distribution of the estimated parameters against the theoretical normal distribution.
