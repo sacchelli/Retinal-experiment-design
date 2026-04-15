@@ -1,21 +1,14 @@
-% The following script can be used to reproduce the numerical experiments
-% present in the paper "...." by ....
-
-% This particular script focuses on the 1-dimensional model of the retina,
-close("all")
-%clear variables
-
-% Colors
-Goldenrod=[1 0.9 0.15];
-red=[0.9,0.0,0.0];
-yellow="#FAB84D";
-blue="#3DA3FF";
-green="#30E172";
-purple="#8D4AC8";
-grey1="#F2F2F2";
-grey2="#C8C8C8";
-grey1="#848484";
-grey4="#585858";
+% The following script reproduces the numerical experiments presented in:
+%
+%   "Optimal input design for parameter estimation in linear controlled
+%    stochastic systems with retinal applications"
+%   L. Sacchelli, B. Cessac, L. Pronzato
+%   Preprint 2026
+%
+% GitHub repository: https://github.com/sacchelli/Retinal-experiment-design
+%
+% If you use this code in your work, please cite the above reference.
+% This code is distributed under the MIT License (see LICENSE file).
 
 addpath(genpath('./Functions'))
 clc
@@ -120,7 +113,7 @@ nbrRandomInputs = 300; % must be >0 if true.
 createAnimatedGIF = false;
 
 
-%% DYNAMICS CONSTRUCTION
+%% DYNAMICS CONSTRUCTION %%
 %%%% Data // following the reference.
 
 retinalWidth = 2; % mm 
@@ -321,12 +314,13 @@ if Compare_FIM_times
     M2=M;
     
     time_ratio=t_Fisher_recursive/t_Fisher_expand;
-    fprintf(['Ratio of computational times direct/recursive: ', num2str(time_ratio), '. \n'])
+    fprintf(['\n','Ratio of computational times recursive/direct: ', num2str(time_ratio), '. \n'])
 end
 
+fprintf(['\n','Relative ratio of the FIMs coefficients computed by the two methods: '])
 (M1{1}-M2{1})./M1{1}
 
-return
+
 
 % Calculation of all Fisher information matrices for parameters thetaData (by the fastest method):
 t1=tic;
@@ -349,7 +343,7 @@ if strcmp(crit,'Lopt') && strcmp(crit_Lopt,'Aopt') && relative_prec
     KK=diag(thetaDesign.^(-1));
 end    
 [Mopt,wopt,indices] = optimal_FIM(MDesign,[],crit,KK,20,required_eff,remove_inessential,100);
-[nn,idx] = efficient_rounding(wopt,Nexp)
+[nn,idx] = efficientRounding(wopt,Nexp)
 
 wnew=wopt(idx);
 idx=indices(idx) % indices corresponding to the original indexation of matrices in M
@@ -364,7 +358,7 @@ fprintf(['\n','Computation time for optimal design: ', num2str(tSearchTaken,3) ,
 fprintf(['\n','Total computation time up to now: ', num2str(timeTakenCheck,3) ,' s\n'])
 fprintf([' \n'])
  
-%% Finding the best vertex before initialization
+%% FINDING THE BEST VERTEX BEFORE INITIALIZATION %%
 
 maxScore = -Inf;
 maxScoreIndex = 0;
@@ -378,51 +372,10 @@ end
 
 Mtop = M{maxScoreIndex};
 
-% ANIMATE THE INPUTS %%
-
-figure(1)
-clf
-pause(.5)
-
-% Define spatial domain
-
-dx = retinalWidth/(dn-1);
-x = 0:dx:(dn-1)*dx;
-
-lidx = length(idx);
-info = cell(lidx,3);
-for k=1:length(idx)
-    %info{k,1} = num2str(wnew(idx(k)));
-    info{k,1} = num2str(wnew(k));
-    info{k,2} = num2str(inputParameters(1,idx(k))/cStar);
-    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
-end
-
-for l=1:N
-    for k=1:length(idx)
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-
-        % Piecewise constant plot using stairs
-        stairs(x, control_plot(:,l), 'LineWidth', 1.5)
-
-        ylim([0 2])
-        xlim([0, (dn-1)*dx])
-        xlabel('Position (mm)')
-        ylabel('Control')
-        title("weight = " + info{k,1} + ...
-            ", c = " + info{k,2} + ...
-            " \times c^*, k = " + info{k,3} + " \times k^*")
-
-    end
-    drawnow nocallbacks
-    pause(0.001)
-end
-
-%return
 
 
-%% Confirmation of the identifiability problem for the model with 7 parameters
+
+%% CONFIRMATION OF THE IDENTIFIABILITY PROBLEM FOR THE MODEL WITH 7 PARAMETERS %%
 if p==7 % (identifiability problem)
 
     DETM=NaN(1,K);
@@ -460,8 +413,8 @@ end
 
 % Optimal inputs
 % theoretical results (Fisher information matrix)
-%[Cov_theoretical,sqrt_eig_Cov_theoretical] = Stat_THETA_theoretical(M,idx,nn,N,q);
-Cov_theoretical = cov_THETA_theoretical(M,idx,nn,N,q);
+
+[Cov_theoretical, ~] = Stat_THETA_theoretical(M,idx,nn,N,q);
 
 if crit == 'Dopt'
     Cov_theoretical_Dopt=Cov_theoretical;
@@ -505,7 +458,7 @@ diag_copt=diag(Cov_theoretical_copt)';
 idx_rand=counter-1-nbrRandomInputs:1:counter-1-nbrRandomInputs+Nexp; % indices for random inputs
 nn_rand=ones(1,Nexp); % each one used one time only
 %[Cov_theoretical_rand,sqrt_eig_Cov_theoretical_rand] = Stat_THETA_theoretical(M,idx_rand,nn_rand,N,q);
-Cov_theoretical_rand = cov_THETA_theoretical(M,idx_rand,nn_rand,N,q);
+[Cov_theoretical_rand, ~] = Stat_THETA_theoretical(M,idx_rand,nn_rand,N,q);
 eig_rand=eig(Cov_theoretical_rand)';
 diag_rand=diag(Cov_theoretical_rand)';
 
@@ -518,40 +471,10 @@ Summary=[exp((log(det(Cov_theoretical_Dopt))-log(det(Cov_theoretical_Dopt)))/p) 
          exp((log(det(Cov_theoretical_Dopt))-log(det(Cov_theoretical_copt)))/p) trace(Cov_theoretical_Aopt)/trace(Cov_theoretical_copt) trace(cc'*Cov_theoretical_copt*cc)/trace(cc'*Cov_theoretical_copt*cc) 
          exp((log(det(Cov_theoretical_Dopt))-log(det(Cov_theoretical_rand)))/p) trace(Cov_theoretical_Aopt)/trace(Cov_theoretical_rand) trace(cc'*Cov_theoretical_copt*cc)/trace(cc'*Cov_theoretical_rand*cc)]
 
-%%
-figure(11)
-pp1D=plot(1:p,log10(eig_Dopt),'-','LineWidth',2,'MarkerSize',10); hold on
-pp1A=plot(1:p,log10(eig_Aopt),'-','LineWidth',2,'MarkerSize',10);
-pp1c=plot(1:p,log10(eig_copt),'-','LineWidth',2,'MarkerSize',10);
-pp1rand=plot(1:p,log10(eig_rand),'-','LineWidth',2,'MarkerSize',10);
-set(pp1D,'Color',red,'LineStyle','--','Marker','p','MarkerFaceColor',red)
-set(pp1A,'Color',blue,'LineStyle','--','Marker','o','MarkerFaceColor',blue)
-set(pp1c,'Color',yellow,'LineStyle','--','Marker','d','MarkerFaceColor',yellow)
-set(pp1rand,'Color','k','LineStyle','--','Marker','s','MarkerFaceColor','k')
-set(gca,'FontSize',20)
-tightfig(gcf);
-axis tight
-grid on
-hold off
 
-figure(12)
-pp2D=plot(1:p,log10(diag_Dopt),'-','LineWidth',2,'MarkerSize',10); hold on
-pp2A=plot(1:p,log10(diag_Aopt),'-','LineWidth',2,'MarkerSize',10);
-pp2c=plot(1:p,log10(diag_copt),'-','LineWidth',2,'MarkerSize',10);
-pp2rand=plot(1:p,log10(diag_rand),'-','LineWidth',2,'MarkerSize',10);
-set(pp2D,'Color',red,'LineStyle','--','Marker','p','MarkerFaceColor',red)
-set(pp2A,'Color',blue,'LineStyle','--','Marker','o','MarkerFaceColor',blue)
-set(pp2c,'Color',yellow,'LineStyle','--','Marker','d','MarkerFaceColor',yellow)
-set(pp2rand,'Color','k','LineStyle','--','Marker','s','MarkerFaceColor','k')
-set(gca,'FontSize',20)
-axis tight
-grid on
-hold off
-tightfig(gcf);
 
-return
 
-%%
+%% COMPARISON OF LOG-ML FUNCTIONNAL COMPUTATION
 
 % -----------------------------------------------------------------------
 % Generate only one data set (for thetaData) and estimate, just to check...
@@ -574,213 +497,15 @@ t1=tic;
 for ii=1:ntrials
     JML1=JML_stochastic_direct(Ybar,CovY,controls,idx,nn,sig2,thetaData, Delta, Acell, B, C, D,cutoff, depth);
 end
-toc(t1)
-t2=tic;
+t1f = toc(t1)
+t2 = tic;
 for ii=1:ntrials
     JML=JML_stochastic(Y,controls,idx,nn,sig2,thetaData, Delta, Acell, B, C, D);
 end
-toc(t2)
+t2f = toc(t2)
 
+
+fprintf(['\n','Relative ratio of the ML energies computed by the two methods: '])
 [JML1 JML]
 
-return
-%%
-
-% Model response (deterministic 1D model) at parameters theta:
-if strcmp(estimation_model,'deterministic') 
-    % Weighted LS  
-    J_ML_theta_1D=@(theta) JML_deterministic(Ybar,controls,idx,nn,sig2,theta, Delta, Acell, B, C);
-        JML_0=JML_deterministic(Ybar,controls,idx,nn,sig2,thetaData, Delta, Acell, B, C)
-    J_ML_grad_theta_1D=@(theta) JML_grad_deterministic(Ybar,controls,idx,nn,sig2,theta, Delta, Acell, B, C); 
-elseif strcmp(estimation_model,'stochastic') 
-    % ML
-    J_ML_theta_1D=@(theta) JML_stochastic(Y,controls,idx,nn,sig2,theta, Delta, Acell, B, C, D);
-        JML_0=JML_stochastic(Y,controls,idx,nn,sig2,thetaData, Delta, Acell, B, C, D)
-end
-
-%
-options = optimoptions('fminunc', 'MaxFunctionEvaluations', 1e4, 'MaxIterations', 1e4, ...
-    'Algorithm','quasi-newton', ...
-    'SpecifyObjectiveGradient', false);
-t1=tic;
-[thetaopt_a,fval_a] = fminunc(J_ML_theta_1D,thetaData,options);         % optimisation initialised at thetaData
-t1p=toc(t1);
-% options = optimoptions('fminunc', 'MaxFunctionEvaluations', 1e4, 'MaxIterations', 1e4, ...
-%     'Algorithm','quasi-newton', ...
-%     'SpecifyObjectiveGradient', false); 
-% This one uses gradient (only for the deterministic model!) and is much slower :
-% options = optimoptions('fminunc', 'MaxFunctionEvaluations', 1e4, 'MaxIterations', 1e4, ...
-%     'Algorithm', 'quasi-newton', ...
-%     'SpecifyObjectiveGradient', true);
-t2=tic;
-%[thetaopt_b,fval_b] = fminunc(J_ML_grad_theta_1D,thetaData,options);    % optimisation initialised at thetaData
-[thetaopt_b,fval_b] = fminunc(J_ML_theta_1D,thetaData,options);    % optimisation initialised at thetaData
-t2p=toc(t2);
-t3=tic;
-%[thetaopt_c,fval_c] = fminunc(J_ML_grad_theta_1D,0.01*ones(1,p),options);    % optimisation initialised elsewhere (0.01*ones(1,p))
-[thetaopt_c,fval_c] = fminunc(J_ML_theta_1D,0.01*ones(1,p),options);    % optimisation initialised elsewhere (0.01*ones(1,p))
-t3p=toc(t3);
-[thetaopt_a
- thetaopt_b
- thetaopt_c   
- thetaData]
-[fval_a fval_b fval_c JML_0]
-[t1p t2p t3p]
-
-%% now repeat Nrepeat times...    
-Nrepeat=0;
-%Nrepeat=100;
-THETA=NaN(Nrepeat,p);
-timebar= waitbar(0,'repeated simulations & estimations...'); 
-for i=1:Nrepeat
-    waitbar(i/Nrepeat,timebar);
-    if strcmp(data_model,'deterministic')
-        Y=data_deterministic_1D_rec(controls,idx,nn,sig2,thetaData, Delta, Acell, B, C, N);
-            % Sufficient statistics: 
-            [Ybar,CovY] = average_data(Y,nn);
-        if strcmp(estimation_model,'deterministic') 
-            % Criterion for the estimation of theta: weighted LS 
-            J_ML_theta_1D=@(theta) JML_deterministic(Ybar,controls,idx,nn,sig2,theta, Delta, Acell, B, C);        
-        elseif strcmp(estimation_model,'stochastic')
-            % Criterion for the estimation of theta: ML 
-            J_ML_theta_1D=@(theta) JML_stochastic(Y,controls,idx,nn,sig2,theta, Delta, Acell, B, C, D);
-        end
-    elseif strcmp(data_model,'stochastic')
-        Y = data_stochastic_1D_rec(controls,idx,nn,sig2,thetaData, Delta, Acell, B, C, D, N);
-            [Ybar,CovY] = average_data(Y,nn);
-        if strcmp(estimation_model,'deterministic') 
-            % Criterion for the estimation of theta: weighted LS 
-            J_ML_theta_1D=@(theta) JML_deterministic(Ybar,controls,idx,nn,sig2,theta, Delta, Acell, B, C);
-        elseif strcmp(estimation_model,'stochastic') 
-            % Criterion for the estimation of theta: ML 
-            J_ML_theta_1D=@(theta) JML_stochastic(Y,controls,idx,nn,sig2,theta, Delta, Acell, B, C, D);
-        end        
-    end
-    options = optimoptions('fminunc', 'MaxFunctionEvaluations', 1e4, 'MaxIterations', 1e4, ...
-    'Algorithm','quasi-newton', ...
-    'Display', 'none', ...
-    'SpecifyObjectiveGradient', false);
-
-    evalc('[thetaopt,fval_b] = fminunc(J_ML_theta_1D,0.01*ones(1,p))');
-    %evalc('[thetaopt,fval_b] = fminunc(J_ML_theta_1D,thetaData)');
-    THETA(i,:)=thetaopt;   
-end    
-close(timebar)
-
-%--------------------------------------------------------------------------------------
-    % Results summary
-    format shortG
-    [mean_theta,mean_absbias_theta,Cov_theta,sqrt_eig_Cov] = Stat_THETA(THETA,thetaData)
-    format short
-%--------------------------------------------------------------------------------------
-
-return
-
-%% ANIMATE THE INPUTS BASED ON LUMINOSITY %%
-
-figure(2)
-clf
-pause(.5)
-
-
-
-lidx = length(idx);
-info = cell(lidx,3);
-for k=1:length(idx)
-
-    info{k,1} = num2str(wnew(idx(k)));
-    info{k,2} = num2str(inputParameters(1,idx(k))/cStar);
-    info{k,3} = num2str(inputParameters(2,idx(k))/kMax);
-
-end
-
-for l=1:N
-
-    for k=1:length(idx)
-
-        subplot(length(idx),1,k)
-        control_plot = controls{idx(k)};
-
-        % Piecewise constant plot using stairs
-        %
-        imagesc(control_plot(:,l)',[0,1])
-        colormap(gray); 
-        axis image;
-        
-        xlabel('Position (pxl)')
-        
-        title("weight = " + info{k,1} + ...
-            ", c = " + info{k,2} + ...
-            " \times c^*, k = " + info{k,3} + " \times k^*")
-        
-    end
-    
-    drawnow nocallbacks
-    pause(0.001)
-
-end
-
-
-
-
-
-%% CREATE ANIMATED GIF %%
-
-if createAnimatedGIF
-
-    % --- GIF parameters ---
-    
-    datePresent = datetime('now','Format','yyyy-MM-dd_HH-mm');
-    s = char(datePresent);
-    
-    gifname   = ['videoOutput/Optimal_inputs_1D_',s,'.gif'];
-    delayTime = 0.05;   % seconds between frames
-    firstFrame = true;
-    
-    if exist(gifname, 'file')
-        delete(gifname)
-    end
-    
-    
-    % --- Figure setup ---
-    
-    fig = figure(3); 
-    clf(fig,'reset') 
-    set(gcf,'Position',[100 100 600 (length(idx)*100)])
-    
-    for l = 1:N
-    
-        for k = 1:length(idx)
-            subplot(length(idx),1,k)
-            control_plot = controls{idx(k)};
-    
-            imagesc(control_plot(:,l)', [0,1])
-            colormap(gray)
-            axis image
-    
-            xlabel('Position (pxl)')
-            title("weight = " + info{k,1} + ...
-                  ", c = " + info{k,2} + ...
-                  " \times c^*, k = " + info{k,3} + " \times k^*")
-        end
-    
-        drawnow
-    
-        % --- Capture one frame per l ---
-        frame = getframe(gcf);
-        im = frame2im(frame);
-        [A,map] = rgb2ind(im,256);
-    
-        if firstFrame
-            imwrite(A, map, gifname, 'gif', ...
-                    'LoopCount', Inf, ...
-                    'DelayTime', delayTime);
-            firstFrame = false;
-        else
-            imwrite(A, map, gifname, 'gif', ...
-                    'WriteMode', 'append', ...
-                    'DelayTime', delayTime);
-        end
-    end
-end
-
+fprintf(['\n','Ratio of computational times recursive/direct: ', num2str(t2f/t1f), '. \n'])

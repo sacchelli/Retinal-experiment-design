@@ -66,7 +66,7 @@ elseif strcmp(design_model,'stochastic')
     if cutoff
         Q = buildQCutoff(SigmaBoldInv_design, dSb, N, depth);
     else
-        Q = buildQ(SigmaBoldInv_design, dSb, N, depth);
+        Q = buildQ(SigmaBoldInv_design, dSb, N);
     end
 
 end
