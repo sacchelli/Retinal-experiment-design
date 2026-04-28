@@ -1947,14 +1947,14 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="0.11764706"
-     inkscape:cx="382.5"
-     inkscape:cy="199.75"
-     inkscape:window-width="896"
-     inkscape:window-height="250"
+     inkscape:zoom="0.45472975"
+     inkscape:cx="393.6404"
+     inkscape:cy="51.679047"
+     inkscape:window-width="1440"
+     inkscape:window-height="842"
      inkscape:window-x="0"
      inkscape:window-y="30"
-     inkscape:window-maximized="0"
+     inkscape:window-maximized="1"
      inkscape:current-layer="g1">
     <inkscape:page
        x="0"
@@ -1970,6 +1970,13 @@
      id="g1"
      inkscape:groupmode="layer"
      inkscape:label="1">
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:2.668;stroke-linecap:round;stroke-linejoin:bevel;stroke-dasharray:10.6653, 5.33264, 2.66633, 5.33264;stroke-dashoffset:0"
+       id="rect1"
+       width="772"
+       height="408"
+       x="0"
+       y="0" />
     <path
        id="path1"
        d="m 22.898,298.094 h 0.555 V 24.567 h -0.555 z"
